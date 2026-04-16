@@ -16,12 +16,30 @@ Companion code for the *Economics of Claude Code* blog series.
 
 ## Install
 
+### Option A: Skills registry (skills.sh)
+
+Install the slash commands as agent skills — works with Claude Code, Codex, Cursor, and 40+ other agents:
+
+```bash
+npx skills add zivtech/claude-cost-helpers
+```
+
+This installs the 6 skills (save-session, resume-session, split, delegate, safe-compact, to-file). To also get the **automatic warning hooks**, run the hook installers below.
+
+### Option B: Hook installers (manual)
+
 Each helper is self-contained. Install one or all:
 
 ```bash
+# Install all helpers at once
+./install-all.sh
+
+# Or install individually
 cd 01-idle-tax && ./install.sh
 cd 02-just-one-more-turn && ./install.sh
-# etc.
+cd 03-subagent-isolation && ./install.sh
+cd 04-compact-gamble && ./install.sh
+cd 05-watching-cost && ./install.sh
 ```
 
 Each installer copies a hook script + slash commands into `~/.claude/`, backs up anything it would overwrite, and prints the `settings.json` snippet to merge. No auto-modification of settings — you merge manually.
