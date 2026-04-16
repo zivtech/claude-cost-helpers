@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/idle-tax/cache-idle-timer.sh",
+            "timeout": 5,
+            "statusMessage": "Checking cache freshness..."
+          }
+        ]
+      }
+    ]
+  }
+}
