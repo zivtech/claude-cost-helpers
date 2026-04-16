@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/watching-cost/output-size-monitor.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

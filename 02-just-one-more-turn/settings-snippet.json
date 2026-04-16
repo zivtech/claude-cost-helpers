@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/just-one-more-turn/context-usage-monitor.sh",
+            "timeout": 5,
+            "statusMessage": "Checking context usage..."
+          }
+        ]
+      }
+    ]
+  }
+}

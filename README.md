@@ -9,10 +9,10 @@ Companion code for the *Economics of Claude Code* blog series.
 | # | Helper | Blog post | Hook type | Slash commands | Status |
 |---|---|---|---|---|---|
 | 01 | [Idle Tax](01-idle-tax/) | Part 1: The Idle Tax | `UserPromptSubmit` — warns when cache has expired or is about to | `/save-session`, `/resume-session` | **Built + tested** |
-| 02 | [Just One More Turn](02-just-one-more-turn/) | Part 2: The "just one more turn" trap | `UserPromptSubmit` — warns when context usage approaches the rot zone | `/split` | Stubbed |
-| 03 | [Subagent Isolation](03-subagent-isolation/) | Part 3: The agent that read 200 files | `PostToolUse` on Read/Glob/Grep — warns when file count exceeds threshold | `/delegate` | Stubbed |
-| 04 | [Compact Gamble](04-compact-gamble/) | Part 4: The compact gamble | `PreCompact` — backs up context before compaction | `/safe-compact` | Stubbed |
-| 05 | [Watching Cost](05-watching-cost/) | Part 5: The watching cost | `PostToolUse` (all) — warns when tool output exceeds token threshold | `/to-file` | Stubbed |
+| 02 | [Just One More Turn](02-just-one-more-turn/) | Part 2: The "just one more turn" trap | `UserPromptSubmit` — warns when context usage approaches the rot zone | `/split` | **Built + tested** |
+| 03 | [Subagent Isolation](03-subagent-isolation/) | Part 3: The agent that read 200 files | `PostToolUse` on Read/Glob/Grep — warns when file count exceeds threshold | `/delegate` | **Built + tested** |
+| 04 | [Compact Gamble](04-compact-gamble/) | Part 4: The compact gamble | `PreCompact` — saves a marker and urges context preservation before compaction | `/safe-compact` | **Built + tested** |
+| 05 | [Watching Cost](05-watching-cost/) | Part 5: The watching cost | `PostToolUse` (all) — warns when tool output exceeds token threshold | `/to-file` | **Built + tested** |
 
 ## Install
 
@@ -25,6 +25,74 @@ cd 02-just-one-more-turn && ./install.sh
 ```
 
 Each installer copies a hook script + slash commands into `~/.claude/`, backs up anything it would overwrite, and prints the `settings.json` snippet to merge. No auto-modification of settings — you merge manually.
+
+### Combined settings snippet (all helpers)
+
+If you install all five helpers, here's the combined `hooks` block for `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/idle-tax/cache-idle-timer.sh",
+            "timeout": 5,
+            "statusMessage": "Checking cache freshness..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/just-one-more-turn/context-usage-monitor.sh",
+            "timeout": 5,
+            "statusMessage": "Checking context usage..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(Read|Glob|Grep)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/subagent-isolation/file-count-monitor.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/watching-cost/output-size-monitor.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/compact-gamble/pre-compact-backup.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Note: the `PostToolUse` array has two entries with different matchers — the file-count monitor only fires on Read/Glob/Grep, while the output-size monitor fires on all tools.
 
 ## How they work together
 
@@ -55,9 +123,9 @@ MIT. See each helper's LICENSE file.
 
 ---
 
-## Helper stubs (02–05)
+## Helper details (02–05)
 
-Helpers 02–05 are not yet built. Below is what each will contain when implemented. The architecture follows the same pattern as 01 — a hook script, one or two slash commands, a settings snippet, and install/uninstall scripts.
+Below is what each helper contains. The architecture follows the same pattern as 01 — a hook script, one or two slash commands, a settings snippet, and install/uninstall scripts.
 
 ---
 
@@ -67,11 +135,11 @@ Helpers 02–05 are not yet built. Below is what each will contain when implemen
 
 **Hook: `context-usage-monitor.sh`**
 - Event: `UserPromptSubmit`
-- Behavior: Estimates current context size by tracking turn count and average tool-output size per session (via local state file). When estimated context approaches a configurable threshold (default 300K tokens):
-  - At 70% of threshold: status line indicator changes (if status line is configured)
+- Behavior: Estimates current context size by tracking turn count per session (via local state file). Each turn is estimated at ~3,000 tokens (configurable). When estimated context approaches a configurable threshold (default 300K tokens):
+  - At 70% of threshold: soft heads-up — "Context is getting heavy. You're approaching the rot zone."
   - At 90% of threshold: warns — "Context is getting heavy (~270K est). Consider `/split` to start fresh with a handoff."
   - At 100%+: stronger warning — "Context is past the rot zone. Quality and cost are both degrading. `/split` recommended."
-- Limitation: token count is estimated from turn count × average, not measured. Accuracy is "good enough to warn," not "good enough to bill." Joyus platform (Spec 011 Phase 2) provides exact token counts.
+- Limitation: token count is estimated from turn count × per-turn average, not measured. Sessions with heavy tool output (file reads, build logs) will have higher actual usage. The estimate is a floor, not a ceiling — "good enough to warn," not "good enough to bill." Joyus platform (Spec 011 Phase 2) provides exact token counts.
 
 **Slash command: `/split`**
 - Runs `/save-session` with an auto-generated description ("context-split at ~Nk estimated tokens")
@@ -150,9 +218,11 @@ Helpers 02–05 are not yet built. Below is what each will contain when implemen
 
 **Hook: `pre-compact-backup.sh`**
 - Event: `PreCompact`
-- Behavior: Before any compaction (auto or manual), writes a snapshot of the current session state to `~/.claude/sessions/<sessionId>-pre-compact-<timestamp>.md`. The snapshot uses the same format as `/save-session` — a structured handoff that captures what was happening before the compact.
-- This is a safety net, not an undo. If the compact drops something critical, you can start a fresh session with `/resume-session <path-to-pre-compact-snapshot>` and you'll have everything that was in context before the compact happened.
-- Limitation: the snapshot is an LLM-written summary (via the `/save-session` prompt), not a verbatim transcript. It's subject to the same quality constraints as any summary at high context usage.
+- Behavior: Before any compaction (auto or manual), does two things:
+  1. Writes a metadata marker file to `~/.claude/sessions/<sessionId>-pre-compact-<timestamp>.md` recording the session ID, timestamp, and trigger type (auto/manual). This marker lets you know exactly when a compact happened if you later notice missing context.
+  2. Injects `additionalContext` asking Claude to briefly summarize what was being worked on, key decisions, current file state, and the next step — so that summary survives into the compacted context.
+- This is a safety net, not an undo. The marker file is metadata only (a bash hook cannot access conversation content). The real value is the `additionalContext` prompt that gets Claude to preserve key context before compaction runs.
+- If the compact drops something critical, the marker tells you when it happened. Use `/save-session` proactively before compaction for a richer handoff.
 
 **Slash command: `/safe-compact`**
 - Instead of compacting, runs `/save-session` and tells the user to start fresh
