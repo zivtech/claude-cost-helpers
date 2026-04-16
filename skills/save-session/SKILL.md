@@ -1,6 +1,6 @@
 ---
 name: save-session
-description: Save current session state for handoff to a future session. Creates a structured file capturing what worked, what failed, and the exact next step. Use when stepping away, before cache expires, or when context is getting heavy. Part of claude-cost-helpers (01-idle-tax).
+description: Save current session state for handoff to a future session. Creates a structured file capturing what worked, what failed, and the exact next step. Use when stepping away, before cache expires, or when context is getting heavy. Part of claude-cost-helpers (idle-tax).
 ---
 
 # Save Session
@@ -105,4 +105,4 @@ If nothing failed: "No failed approaches yet."
 
 ## Companion Hook
 
-This skill is part of the **Idle Tax** helper (01-idle-tax). The companion hook (`cache-idle-timer.sh`) warns when your prompt cache has expired after 5+ minutes of inactivity. Install the hook for automatic warnings: `cd 01-idle-tax && ./install.sh`
+This skill is part of the **Idle Tax** helper (idle-tax). The companion hook (`cache-idle-timer.sh`) warns when your prompt cache has expired after 5+ minutes of inactivity. Install the hook for automatic warnings: `cd idle-tax && ./install.sh`

@@ -13,7 +13,7 @@
 # approximate — it is a floor based on turn count, not a ceiling. Actual usage
 # depends on message length, tool output, and file reads.
 #
-# Part of: claude-cost-helpers / 02-just-one-more-turn
+# Part of: claude-cost-helpers / just-one-more-turn
 # Companion to: The Economics of Claude Code, Part 2: The "just one more turn" trap
 
 INPUT=$(cat)

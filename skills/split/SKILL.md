@@ -1,6 +1,6 @@
 ---
 name: split
-description: Save current session and split — start fresh to avoid context rot and rising costs. Use when context is heavy (300K+ tokens estimated) or response quality is degrading. Part of claude-cost-helpers (02-just-one-more-turn).
+description: Save current session and split — start fresh to avoid context rot and rising costs. Use when context is heavy (300K+ tokens estimated) or response quality is degrading. Part of claude-cost-helpers (just-one-more-turn).
 ---
 
 # Split Session
@@ -61,4 +61,4 @@ everything needed to pick up exactly where this session left off.
 
 ## Companion Hook
 
-This skill is part of the **Just One More Turn** helper (02-just-one-more-turn). The companion hook (`context-usage-monitor.sh`) automatically warns when your context approaches the rot zone. Install the hook for automatic warnings: `cd 02-just-one-more-turn && ./install.sh`
+This skill is part of the **Just One More Turn** helper (just-one-more-turn). The companion hook (`context-usage-monitor.sh`) automatically warns when your context approaches the rot zone. Install the hook for automatic warnings: `cd just-one-more-turn && ./install.sh`

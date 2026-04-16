@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/auto-persist/stop-auto-persist.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

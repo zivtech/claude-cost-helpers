@@ -6,13 +6,15 @@ Companion code for the *Economics of Claude Code* blog series.
 
 ## The helpers
 
-| # | Helper | Blog post | Hook type | Slash commands | Status |
-|---|---|---|---|---|---|
-| 01 | [Idle Tax](01-idle-tax/) | Part 1: The Idle Tax | `UserPromptSubmit` — warns when cache has expired or is about to | `/save-session`, `/resume-session` | **Built + tested** |
-| 02 | [Just One More Turn](02-just-one-more-turn/) | Part 2: The "just one more turn" trap | `UserPromptSubmit` — warns when context usage approaches the rot zone | `/split` | **Built + tested** |
-| 03 | [Subagent Isolation](03-subagent-isolation/) | Part 3: The agent that read 200 files | `PostToolUse` on Read/Glob/Grep — warns when file count exceeds threshold | `/delegate` | **Built + tested** |
-| 04 | [Compact Gamble](04-compact-gamble/) | Part 4: The compact gamble | `PreCompact` — saves a marker and urges context preservation before compaction | `/safe-compact` | **Built + tested** |
-| 05 | [Watching Cost](05-watching-cost/) | Part 5: The watching cost | `PostToolUse` (all) — warns when tool output exceeds token threshold | `/to-file` | **Built + tested** |
+| Helper | Blog post | Hook type | Slash commands | Status |
+|---|---|---|---|---|
+| [Idle Tax](idle-tax/) | Part 1: The Idle Tax | `UserPromptSubmit` — warns when cache has expired or is about to | `/save-session`, `/resume-session` | **Built + tested** |
+| [Just One More Turn](just-one-more-turn/) | Part 2: The "just one more turn" trap | `UserPromptSubmit` — warns when context usage approaches the rot zone | `/split` | **Built + tested** |
+| [Subagent Isolation](subagent-isolation/) | Part 3: The agent that read 200 files | `PostToolUse` on Read/Glob/Grep — warns when file count exceeds threshold | `/delegate` | **Built + tested** |
+| [Compact Gamble](compact-gamble/) | Part 4: The compact gamble | `PreCompact` — saves a marker and urges context preservation before compaction | `/safe-compact` | **Built + tested** |
+| [Watching Cost](watching-cost/) | Part 5: The watching cost | `PostToolUse` (all) — warns when tool output exceeds token threshold | `/to-file` | **Built + tested** |
+| [Effort Control](effort-control/) | Part 1 addendum: 4.7's `xhigh` default | `SessionStart` — confirms `CLAUDE_CODE_EFFORT_LEVEL` pin is active | `/deep` | **Built + tested** |
+| [Auto-Persist](auto-persist/) | Part 1 addendum: Stop-hook session state | `Stop` — writes minimal environmental state after every turn | `/last-state` | **Built + tested** |
 
 ## Install
 
@@ -35,18 +37,20 @@ Each helper is self-contained. Install one or all:
 ./install-all.sh
 
 # Or install individually
-cd 01-idle-tax && ./install.sh
-cd 02-just-one-more-turn && ./install.sh
-cd 03-subagent-isolation && ./install.sh
-cd 04-compact-gamble && ./install.sh
-cd 05-watching-cost && ./install.sh
+cd idle-tax && ./install.sh
+cd just-one-more-turn && ./install.sh
+cd subagent-isolation && ./install.sh
+cd compact-gamble && ./install.sh
+cd watching-cost && ./install.sh
+cd effort-control && ./install.sh
+cd auto-persist && ./install.sh
 ```
 
 Each installer copies a hook script + slash commands into `~/.claude/`, backs up anything it would overwrite, and prints the `settings.json` snippet to merge. No auto-modification of settings — you merge manually.
 
 ### Combined settings snippet (all helpers)
 
-If you install all five helpers, here's the combined `hooks` block for `~/.claude/settings.json`:
+If you install all helpers, here's the combined `hooks` block for `~/.claude/settings.json`:
 
 ```json
 {
@@ -105,22 +109,51 @@ If you install all five helpers, here's the combined `hooks` block for `~/.claud
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/effort-control/effort-pin-banner.sh",
+            "timeout": 5,
+            "statusMessage": "Checking effort pin..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/auto-persist/stop-auto-persist.sh",
+            "timeout": 5
+          }
+        ]
+      }
     ]
-  }
+  },
+  "env": {
+    "CLAUDE_CODE_EFFORT_LEVEL": "high"
+  },
+  "effortLevel": "high"
 }
 ```
 
-Note: the `PostToolUse` array has two entries with different matchers — the file-count monitor only fires on Read/Glob/Grep, while the output-size monitor fires on all tools.
+Note: the `PostToolUse` array has two entries with different matchers — the file-count monitor only fires on Read/Glob/Grep, while the output-size monitor fires on all tools. The `env.CLAUDE_CODE_EFFORT_LEVEL` pin is what defeats Opus 4.7's first-run `xhigh` override — the env var is load-bearing, the root `effortLevel` field is belt-and-suspenders.
 
 ## How they work together
 
 The helpers are independent — install any subset. But they're designed to layer:
 
-- **01 (Idle Tax)** gives you the foundation: cache-awareness + the save/resume cycle
-- **02 (Just One More Turn)** builds on 01: when context gets fat, it recommends splitting — which uses the same `/save-session` from 01
-- **03 (Subagent Isolation)** is orthogonal: prevents context bloat from file-heavy work
-- **04 (Compact Gamble)** protects you when compaction fires: the backup hook means you can recover if a compact drops something
-- **05 (Watching Cost)** catches the other source of context bloat: tool output you didn't need in context
+- **Idle Tax** gives you the foundation: cache-awareness + the save/resume cycle
+- **Just One More Turn** builds on idle-tax: when context gets fat, it recommends splitting — which uses the same `/save-session`
+- **Subagent Isolation** is orthogonal: prevents context bloat from file-heavy work
+- **Compact Gamble** protects you when compaction fires: the backup hook means you can recover if a compact drops something
+- **Watching Cost** catches the other source of context bloat: tool output you didn't need in context
+- **Effort Control** pins `CLAUDE_CODE_EFFORT_LEVEL=high` so Opus 4.7 doesn't silently spend `xhigh` per turn
+- **Auto-Persist** writes environmental state after every turn via Stop hook — zero Claude tokens, always current. The automatic counterpart to idle-tax's manual `/save-session`
 
 The common thread: every helper makes an invisible cost visible at the moment it happens, so you have a real choice.
 
@@ -137,17 +170,17 @@ The helpers are the sensors. Joyus is the fleet manager.
 
 ## License
 
-MIT. See each helper's LICENSE file.
+GPL-3.0-or-later. See each helper's LICENSE file.
 
 ---
 
-## Helper details (02–05)
+## Helper details
 
-Below is what each helper contains. The architecture follows the same pattern as 01 — a hook script, one or two slash commands, a settings snippet, and install/uninstall scripts.
+Below is what each helper contains. The architecture follows the same pattern as idle-tax — a hook script, one or two slash commands, a settings snippet, and install/uninstall scripts.
 
 ---
 
-### 02 — Just One More Turn
+### Just One More Turn
 
 **Problem:** Context rot. Sessions that should have been split keep going. After ~300–400K tokens, model quality degrades and cost per turn keeps climbing (the entire growing context is re-processed on every message).
 
@@ -188,7 +221,7 @@ Below is what each helper contains. The architecture follows the same pattern as
 
 ---
 
-### 03 — Subagent Isolation
+### Subagent Isolation
 
 **Problem:** A parent agent that reads 200 files itself bloats its context forever. A subagent can do the same work in isolation and return only the synthesis. Most users don't think about this because the cost is invisible.
 
@@ -230,7 +263,7 @@ Below is what each helper contains. The architecture follows the same pattern as
 
 ---
 
-### 04 — Compact Gamble
+### Compact Gamble
 
 **Problem:** Compaction summarizes a session and continues on the summary. It's lossy — Claude decides what mattered. When it drops something you needed, there's no recovery. The compaction fires at the worst possible moment (peak context, peak rot), making bad compacts more likely when the stakes are highest.
 
@@ -270,7 +303,7 @@ Below is what each helper contains. The architecture follows the same pattern as
 
 ---
 
-### 05 — Watching Cost
+### Watching Cost
 
 **Problem:** Tools that dump large output into context — build logs, test results, file listings, API responses — silently inflate input cost on every subsequent turn. The output sits in context even if you never reference it again. Pasting a 10K-token build log into chat means every future message in that session reprocesses those 10K tokens.
 
@@ -308,3 +341,77 @@ Below is what each helper contains. The architecture follows the same pattern as
 ```
 
 **Joyus tie-in:** Spec 013, sub-feature C (Tool Output Modes). The platform provides `outputMode` annotations on MCP tool definitions (`stream`/`polling`/`signaled`), watching-cost as a distinct line item in cost dashboards, and operator alerting when watching cost exceeds threshold.
+
+---
+
+### Effort Control
+
+**Problem:** On April 16, 2026, Opus 4.7 shipped with `xhigh` as its new default effort level. The first-run rule silently overrides any previous `effortLevel: "high"` setting. Every turn on 4.7 now spends more thinking tokens than it would on 4.6 with the same config, and there's no notification when the override fires.
+
+**Hook: `effort-pin-banner.sh`**
+- Event: `SessionStart`
+- Behavior: Reads `CLAUDE_CODE_EFFORT_LEVEL` from the hook process environment. Confirms the pin is active (`low|medium|high`), flags no-ops (`xhigh|max` matching the default), warns if missing, or flags unknown values. Banner surfaces via `additionalContext` so Claude can reference it if you ask.
+- Why the env var: `CLAUDE_CODE_EFFORT_LEVEL` is the only mechanism that survives 4.7's "first run on new model family" override. The `effortLevel` settings field and per-session `/effort` both get overridden; the env var does not.
+
+**Slash command: `/deep`**
+- Usage: `/deep <task>`
+- Wraps the next turn in `ultrathink` for one-shot deeper reasoning without changing session effort. Lets you pin `high` by default and escalate only for the one message that needs it.
+
+**Settings snippet:**
+```json
+{
+  "env": { "CLAUDE_CODE_EFFORT_LEVEL": "high" },
+  "effortLevel": "high",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/effort-control/effort-pin-banner.sh",
+            "timeout": 5,
+            "statusMessage": "Checking effort pin..."
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Joyus tie-in:** effort-level is per-user config today. Fleet-level, Joyus can enforce `high` as the org default, track escalations to `xhigh`/`max` as a cost line item, and surface "which engineers or tasks consistently need more reasoning budget" analytics.
+
+---
+
+### Auto-Persist
+
+**Problem:** `/save-session` works, but it costs tokens and requires you to remember. The most common failure mode of idle-tax is "I forgot to save before walking away" — which means the cache expires, you come back, and the handoff you would have wanted never happened.
+
+**Hook: `stop-auto-persist.sh`**
+- Event: `Stop` (fires once per main-session turn; not SubagentStop, which is noisier)
+- Behavior: Writes machine-readable JSON + human-readable Markdown snapshots of the current environment to `~/.claude/sessions/auto-state/<sessionId>.{json,md}`. Captures: cwd, git branch, last commit, staged/modified/untracked counts, upstream ahead/behind, files modified in the last 30 min. Zero Claude tokens — pure shell + git.
+- Injection-safe: values are passed to python via env vars, never interpolated into source, so tricky commit messages and filenames survive round-trip.
+
+**Slash command: `/last-state`**
+- Reads the most recent auto-state Markdown and prints it. One file Read, no synthesis. Much cheaper than `/save-session` for "where did I leave off?" questions.
+
+**Settings snippet:**
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/auto-persist/stop-auto-persist.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Joyus tie-in:** the auto-state file shape is the local-single-user version of the Joyus session-telemetry spec. Aggregating across a team gives you "where is each developer's work sitting right now?" without any platform instrumentation beyond a cron that scrapes `~/.claude/sessions/auto-state/*.json`.

@@ -9,7 +9,7 @@
 # This hook fires on UserPromptSubmit (before the API call) so the user
 # can choose to start a fresh session instead of paying the re-cache cost.
 #
-# Part of: claude-cost-helpers / 01-idle-tax
+# Part of: claude-cost-helpers / idle-tax
 # Companion to: The Economics of Claude Code, Part 1: The Idle Tax
 
 INPUT=$(cat)

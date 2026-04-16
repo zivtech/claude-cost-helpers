@@ -27,7 +27,7 @@ Total install footprint: one script, two slash commands, one JSON snippet to mer
 
 ```bash
 git clone <this-repo> claude-cost-helpers
-cd claude-cost-helpers/01-idle-tax
+cd claude-cost-helpers/idle-tax
 ./install.sh
 ```
 
@@ -108,4 +108,4 @@ This is a productized version of hooks and slash commands the author has been ru
 
 ## License
 
-MIT. See LICENSE.
+GPL-3.0-or-later. See LICENSE.

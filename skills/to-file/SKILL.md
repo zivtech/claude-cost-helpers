@@ -1,6 +1,6 @@
 ---
 name: to-file
-description: Run a command and redirect output to a temp file instead of dumping it into context. Returns the file path, line count, and a preview (first/last 10 lines). Use for test runs, build logs, or any command with large output. Part of claude-cost-helpers (05-watching-cost).
+description: Run a command and redirect output to a temp file instead of dumping it into context. Returns the file path, line count, and a preview (first/last 10 lines). Use for test runs, build logs, or any command with large output. Part of claude-cost-helpers (watching-cost).
 ---
 
 # To File
@@ -51,4 +51,4 @@ Every line of output that appears in the conversation sits in context permanentl
 
 ## Companion Hook
 
-This skill is part of the **Watching Cost** helper (05-watching-cost). The companion hook (`output-size-monitor.sh`) automatically warns when tool output exceeds 5K tokens per call and tracks cumulative output with escalating alerts at 25K, 50K, and 100K tokens. Install the hook for automatic warnings: `cd 05-watching-cost && ./install.sh`
+This skill is part of the **Watching Cost** helper (watching-cost). The companion hook (`output-size-monitor.sh`) automatically warns when tool output exceeds 5K tokens per call and tracks cumulative output with escalating alerts at 25K, 50K, and 100K tokens. Install the hook for automatic warnings: `cd watching-cost && ./install.sh`

@@ -1,6 +1,6 @@
 ---
 name: resume-session
-description: Load the most recent session file and resume work with full context from where the last session ended. Use at the start of a new session after a save-session or split. Part of claude-cost-helpers (01-idle-tax).
+description: Load the most recent session file and resume work with full context from where the last session ended. Use at the start of a new session after a save-session or split. Part of claude-cost-helpers (idle-tax).
 ---
 
 # Resume Session
@@ -81,4 +81,4 @@ If no next step — suggest approaches from "What Has NOT Been Tried Yet."
 
 ## Companion Hook
 
-This skill is part of the **Idle Tax** helper (01-idle-tax). The companion hook (`cache-idle-timer.sh`) warns when your prompt cache has expired. Install the hook for automatic warnings: `cd 01-idle-tax && ./install.sh`
+This skill is part of the **Idle Tax** helper (idle-tax). The companion hook (`cache-idle-timer.sh`) warns when your prompt cache has expired. Install the hook for automatic warnings: `cd idle-tax && ./install.sh`

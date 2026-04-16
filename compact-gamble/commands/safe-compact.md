@@ -37,4 +37,4 @@ Explain the tradeoff clearly:
 
 ## Dependency
 
-This command depends on `/save-session` from Helper 01 (Idle Tax). If `/save-session` is not installed, run `./install.sh` from `01-idle-tax/` first.
+This command depends on `/save-session` from Helper 01 (Idle Tax). If `/save-session` is not installed, run `./install.sh` from `idle-tax/` first.

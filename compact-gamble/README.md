@@ -32,7 +32,7 @@ Total install footprint: one script, one slash command, one JSON snippet to merg
 ## Install
 
 ```bash
-cd claude-cost-helpers/04-compact-gamble
+cd claude-cost-helpers/compact-gamble
 ./install.sh
 ```
 
@@ -123,4 +123,4 @@ This is a productized version of a hook the author runs in his personal Claude C
 
 ## License
 
-MIT. See LICENSE.
+GPL-3.0-or-later. See LICENSE.

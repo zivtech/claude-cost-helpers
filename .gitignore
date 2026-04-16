@@ -1,0 +1,2 @@
+# Exclude OMC local session state from public repo
+.omc/

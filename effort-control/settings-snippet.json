@@ -1,0 +1,20 @@
+{
+  "env": {
+    "CLAUDE_CODE_EFFORT_LEVEL": "high"
+  },
+  "effortLevel": "high",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/effort-control/effort-pin-banner.sh",
+            "timeout": 5,
+            "statusMessage": "Checking effort pin..."
+          }
+        ]
+      }
+    ]
+  }
+}

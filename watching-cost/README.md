@@ -30,7 +30,7 @@ Total install footprint: one script, one slash command, one JSON snippet to merg
 
 ```bash
 git clone <this-repo> claude-cost-helpers
-cd claude-cost-helpers/05-watching-cost
+cd claude-cost-helpers/watching-cost
 ./install.sh
 ```
 
@@ -127,4 +127,4 @@ This is a productized version of hooks the author has been running in his person
 
 ## License
 
-MIT. See LICENSE.
+GPL-3.0-or-later. See LICENSE.

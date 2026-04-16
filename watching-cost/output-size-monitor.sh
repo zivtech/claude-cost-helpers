@@ -15,7 +15,7 @@
 #   - Cumulative 50K: second escalation — consider splitting the session
 #   - Cumulative 100K: third escalation — real money is being burned
 #
-# Part of: claude-cost-helpers / 05-watching-cost
+# Part of: claude-cost-helpers / watching-cost
 # Companion to: The Economics of Claude Code, Part 5: The watching cost
 
 INPUT=$(cat)

@@ -25,7 +25,7 @@ Total install footprint: one script, one slash command, one JSON snippet to merg
 
 ```bash
 git clone <this-repo> claude-cost-helpers
-cd claude-cost-helpers/03-subagent-isolation
+cd claude-cost-helpers/subagent-isolation
 ./install.sh
 ```
 
@@ -128,4 +128,4 @@ This is a productized version of a monitoring pattern the author runs in his per
 
 ## License
 
-MIT. See LICENSE.
+GPL-3.0-or-later. See LICENSE.

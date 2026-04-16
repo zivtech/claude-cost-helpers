@@ -1,6 +1,6 @@
 ---
 name: safe-compact
-description: Save session state and recommend starting fresh instead of compacting. A safer alternative to lossy compaction — compaction discards context permanently with no recovery. Part of claude-cost-helpers (04-compact-gamble).
+description: Save session state and recommend starting fresh instead of compacting. A safer alternative to lossy compaction — compaction discards context permanently with no recovery. Part of claude-cost-helpers (compact-gamble).
 ---
 
 # Safe Compact
@@ -38,8 +38,8 @@ Explain the tradeoff clearly:
 
 ## Dependency
 
-This command depends on `/save-session` from Helper 01 (Idle Tax). If `/save-session` is not installed, install it first: `cd 01-idle-tax && ./install.sh`
+This command depends on `/save-session` from Helper 01 (Idle Tax). If `/save-session` is not installed, install it first: `cd idle-tax && ./install.sh`
 
 ## Companion Hook
 
-This skill is part of the **Compact Gamble** helper (04-compact-gamble). The companion hook (`pre-compact-backup.sh`) automatically saves a marker and prompts Claude to preserve context before any compaction event. Install the hook for automatic protection: `cd 04-compact-gamble && ./install.sh`
+This skill is part of the **Compact Gamble** helper (compact-gamble). The companion hook (`pre-compact-backup.sh`) automatically saves a marker and prompts Claude to preserve context before any compaction event. Install the hook for automatic protection: `cd compact-gamble && ./install.sh`

@@ -10,7 +10,7 @@
 # This hook fires on PostToolUse for Read, Glob, and Grep. It tracks unique
 # file paths per session and warns when the count crosses the threshold.
 #
-# Part of: claude-cost-helpers / 03-subagent-isolation
+# Part of: claude-cost-helpers / subagent-isolation
 # Companion to: The Economics of Claude Code, Part 3: The agent that read 200 files
 
 INPUT=$(cat)

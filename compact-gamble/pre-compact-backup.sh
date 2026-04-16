@@ -15,7 +15,7 @@
 # The real value here is the additionalContext message that prompts Claude
 # to preserve what matters before compaction runs.
 #
-# Part of: claude-cost-helpers / 04-compact-gamble
+# Part of: claude-cost-helpers / compact-gamble
 # Companion to: The Economics of Claude Code, Part 4: The Compact Gamble
 
 INPUT=$(cat)

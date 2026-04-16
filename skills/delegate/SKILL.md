@@ -1,6 +1,6 @@
 ---
 name: delegate
-description: Delegate a task to a subagent with its own clean context window. Keeps heavy file reading out of your main session. Use when reading many files, doing codebase audits, or research tasks. Part of claude-cost-helpers (03-subagent-isolation).
+description: Delegate a task to a subagent with its own clean context window. Keeps heavy file reading out of your main session. Use when reading many files, doing codebase audits, or research tasks. Part of claude-cost-helpers (subagent-isolation).
 ---
 
 # Delegate to Subagent
@@ -70,4 +70,4 @@ After dispatching, let the user know:
 
 ## Companion Hook
 
-This skill is part of the **Subagent Isolation** helper (03-subagent-isolation). The companion hook (`file-count-monitor.sh`) automatically warns when your session has read 50+ unique files. Install the hook for automatic warnings: `cd 03-subagent-isolation && ./install.sh`
+This skill is part of the **Subagent Isolation** helper (subagent-isolation). The companion hook (`file-count-monitor.sh`) automatically warns when your session has read 50+ unique files. Install the hook for automatic warnings: `cd subagent-isolation && ./install.sh`

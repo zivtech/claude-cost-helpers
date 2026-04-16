@@ -9,13 +9,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo ""
-echo "Installing: All Claude Cost Helpers (01–05)"
-echo "============================================="
+echo "Installing: All Claude Cost Helpers"
+echo "===================================="
 echo ""
 
 FAILED=()
 
-for helper in 01-idle-tax 02-just-one-more-turn 03-subagent-isolation 04-compact-gamble 05-watching-cost; do
+for helper in idle-tax just-one-more-turn subagent-isolation compact-gamble watching-cost effort-control auto-persist; do
     HELPER_DIR="${SCRIPT_DIR}/${helper}"
     if [ -d "$HELPER_DIR" ] && [ -x "${HELPER_DIR}/install.sh" ]; then
         echo "─────────────────────────────────────────────"
@@ -43,7 +43,7 @@ echo "COMBINED SETTINGS SNIPPET"
 echo "========================="
 echo ""
 echo "Each helper printed its own snippet above. If you are installing all"
-echo "five, use this combined block instead (merge into ~/.claude/settings.json):"
+echo "helpers, use this combined block instead (merge into ~/.claude/settings.json):"
 echo ""
 echo "────────────────────────────────────────────────────────────────────"
 cat <<'COMBINED'
@@ -103,8 +103,35 @@ cat <<'COMBINED'
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/effort-control/effort-pin-banner.sh",
+            "timeout": 5,
+            "statusMessage": "Checking effort pin..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/auto-persist/stop-auto-persist.sh",
+            "timeout": 5
+          }
+        ]
+      }
     ]
-  }
+  },
+  "env": {
+    "CLAUDE_CODE_EFFORT_LEVEL": "high"
+  },
+  "effortLevel": "high"
 }
 COMBINED
 echo "────────────────────────────────────────────────────────────────────"
