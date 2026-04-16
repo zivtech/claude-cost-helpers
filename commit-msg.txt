@@ -1,9 +1,0 @@
-feat: initial release — idle tax helper (01)
-
-Local hooks and slash commands that make Claude Code cost mechanics
-visible. First helper: cache-idle-timer.sh warns when the 5-min prompt
-cache TTL expires, paired with /save-session and /resume-session.
-
-Companion code for the Economics of Claude Code blog series.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
