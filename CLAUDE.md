@@ -7,22 +7,30 @@ Local Claude Code hooks and slash commands that make cost mechanics visible. Eac
 ## Repo structure
 
 ```
-├── README.md                        # Top-level overview + stubs for all 5 helpers
+├── README.md                        # Top-level overview + combined settings snippet
 ├── CLAUDE.md                        # This file
-├── 01-idle-tax/                     # Helper 01: cache TTL idle detection (BUILT)
+├── 01-idle-tax/                     # Helper 01: cache TTL idle detection
 │   ├── cache-idle-timer.sh          # UserPromptSubmit hook
 │   ├── commands/
 │   │   ├── save-session.md          # /save-session slash command
 │   │   └── resume-session.md        # /resume-session slash command
-│   ├── settings-snippet.json        # Hook wiring for settings.json
-│   ├── install.sh                   # Copies files, prints merge instructions
-│   ├── uninstall.sh                 # Removes files, restores backups
-│   ├── README.md                    # Helper-specific docs
-│   └── LICENSE                      # MIT
-├── 02-just-one-more-turn/           # Helper 02: context rot warning (STUBBED)
-├── 03-subagent-isolation/           # Helper 03: file count warning (STUBBED)
-├── 04-compact-gamble/               # Helper 04: pre-compact backup (STUBBED)
-└── 05-watching-cost/                # Helper 05: output size warning (STUBBED)
+│   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+├── 02-just-one-more-turn/           # Helper 02: context rot warning
+│   ├── context-usage-monitor.sh     # UserPromptSubmit hook
+│   ├── commands/split.md            # /split slash command
+│   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+├── 03-subagent-isolation/           # Helper 03: file count warning
+│   ├── file-count-monitor.sh        # PostToolUse hook (Read/Glob/Grep)
+│   ├── commands/delegate.md         # /delegate slash command
+│   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+├── 04-compact-gamble/               # Helper 04: pre-compact safety net
+│   ├── pre-compact-backup.sh        # PreCompact hook
+│   ├── commands/safe-compact.md     # /safe-compact slash command
+│   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+└── 05-watching-cost/                # Helper 05: output size warning
+    ├── output-size-monitor.sh       # PostToolUse hook (all tools)
+    ├── commands/to-file.md          # /to-file slash command
+    ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
 ```
 
 ## Conventions
@@ -40,7 +48,7 @@ Local Claude Code hooks and slash commands that make cost mechanics visible. Eac
 
 Follow the pattern in `01-idle-tax/`. Checklist:
 
-1. Hook script that reads stdin JSON, extracts `sessionId`, checks local state, outputs hook-contract JSON
+1. Hook script that reads stdin JSON, extracts `session_id` (with `sessionId` fallback), checks local state, outputs hook-contract JSON
 2. Slash command(s) as `.md` files with YAML frontmatter (`description:` field)
 3. `settings-snippet.json` with the correct event type and matcher
 4. `install.sh` that copies files + backs up existing + prints settings snippet
@@ -49,15 +57,24 @@ Follow the pattern in `01-idle-tax/`. Checklist:
 7. `LICENSE` (MIT)
 8. Test all three states (warm/warning/triggered) before shipping
 
+## Hook contract fields
+
+| Event | Key fields in stdin JSON |
+|---|---|
+| `UserPromptSubmit` | `session_id` |
+| `PostToolUse` | `session_id`, `tool_name`, `tool_input` (object), `tool_response` (string or object) |
+| `PreCompact` | `session_id`, `trigger` ("auto" or "manual") |
+
+All hooks use `session_id` (snake_case). Use dual fallback `d.get('sessionId', d.get('session_id', 'unknown'))` for safety. PostToolUse tool response field is `tool_response` — use fallback chain: `tool_response` → `tool_result` → `tool_output`.
+
 ## Testing hooks locally
 
 ```bash
 # Simulate a cold cache (8 min idle)
-STATE_DIR="$TMPDIR/test-state"
-mkdir -p "$STATE_DIR"
+TEST_HOME=$(mktemp -d) && mkdir -p "$TEST_HOME/.claude/.session-state"
 STALE=$(($(date +%s) - 480))
-echo "$STALE" > "$STATE_DIR/test-session.last-activity"
-echo '{"sessionId":"test-session"}' | HOME="$TMPDIR/test-home" ./cache-idle-timer.sh
+echo "$STALE" > "$TEST_HOME/.claude/.session-state/test-session.last-activity"
+echo '{"session_id":"test-session"}' | HOME="$TEST_HOME" bash 01-idle-tax/cache-idle-timer.sh
 ```
 
 ## Related repos
