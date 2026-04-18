@@ -87,18 +87,11 @@ if git -C "$CWD" rev-parse --git-dir >/dev/null 2>&1; then
     fi
 fi
 
-# --- Recently-modified files (last 30 min, up to 10, excluding noise) ----
-RECENT_FILES=$(find "$CWD" -type f -mmin -30 \
-    -not -path '*/.git/*' \
-    -not -path '*/node_modules/*' \
-    -not -path '*/.omc/*' \
-    -not -path '*/dist/*' \
-    -not -path '*/build/*' \
-    -not -path '*/.next/*' \
-    -not -path '*/.cache/*' \
-    -not -path '*/__pycache__/*' \
-    -not -name '*.log' \
-    2>/dev/null | head -10)
+# --- Write JSON state FIRST, then best-effort recent files ---------------
+# The find/git-ls-files call can be slow on large repos and may exceed the
+# 5-second hook timeout. Writing core state (git info, cwd, timestamps)
+# before attempting file discovery ensures we always have useful output.
+RECENT_FILES=""
 
 # --- Write JSON state via python, passing ALL values through env vars ----
 JSON_FINAL="${STATE_DIR}/${SESSION_ID}.json"
@@ -201,5 +194,80 @@ with open(md_tmp, "w") as f:
     f.write("\n".join(lines))
 os.replace(md_tmp, md_final)
 PYEOF
+
+# --- Best-effort: discover recently-modified files and update state ------
+# This runs AFTER the core state is already written. If the hook times out
+# here, we still have git info + cwd + timestamps from the write above.
+if git -C "$CWD" rev-parse --git-dir >/dev/null 2>&1; then
+    # Fast path: git-tracked modified + untracked files (respects .gitignore)
+    RECENT_FILES=$(git -C "$CWD" ls-files -m -o --exclude-standard 2>/dev/null | head -10)
+else
+    # Fallback: bounded find for non-git directories
+    RECENT_FILES=$(find "$CWD" -maxdepth 3 -type f -mmin -30 \
+        -not -path '*/.git/*' \
+        -not -path '*/node_modules/*' \
+        -not -path '*/.omc/*' \
+        -not -path '*/dist/*' \
+        -not -path '*/build/*' \
+        -not -path '*/.next/*' \
+        -not -path '*/.cache/*' \
+        -not -path '*/__pycache__/*' \
+        -not -name '*.log' \
+        2>/dev/null | head -10)
+fi
+
+# Re-write state with recent files if we got any
+if [ -n "$RECENT_FILES" ]; then
+    AP_RECENT="$RECENT_FILES" \
+    AP_JSON_FINAL="$JSON_FINAL" \
+    AP_MD_FINAL="$MD_FINAL" \
+    python3 - <<'PYEOF' 2>>"$DEBUG_LOG"
+import json, os
+
+recent_raw = os.environ.get("AP_RECENT", "")
+recent = [line for line in recent_raw.splitlines() if line.strip()]
+if not recent:
+    raise SystemExit(0)
+
+json_final = os.environ["AP_JSON_FINAL"]
+md_final = os.environ["AP_MD_FINAL"]
+
+# Update JSON
+try:
+    with open(json_final, "r") as f:
+        state = json.load(f)
+    state["recent_files"] = recent
+    json_tmp = json_final + ".tmp"
+    with open(json_tmp, "w") as f:
+        json.dump(state, f, indent=2)
+    os.replace(json_tmp, json_final)
+except Exception:
+    pass
+
+# Append to Markdown
+try:
+    with open(md_final, "r") as f:
+        content = f.read()
+    marker = "---\n_Auto-updated"
+    if marker in content:
+        before = content.split(marker)[0]
+        lines = [before.rstrip()]
+        lines.append("")
+        lines.append("## Recently modified")
+        lines.append("")
+        for rf in recent:
+            lines.append(f"- `{rf}`")
+        lines.append("")
+        lines.append("---")
+        lines.append("_Auto-updated on every Stop event by `auto-persist`. No Claude tokens consumed._")
+        lines.append("")
+        md_tmp = md_final + ".tmp"
+        with open(md_tmp, "w") as f:
+            f.write("\n".join(lines))
+        os.replace(md_tmp, md_final)
+except Exception:
+    pass
+PYEOF
+fi
 
 exit 0
