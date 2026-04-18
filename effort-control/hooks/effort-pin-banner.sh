@@ -13,8 +13,6 @@
 # Part of: claude-cost-helpers / effort-control
 # Companion to: The Economics of Claude Code, Part 6 (or Part 1 4.7 addendum)
 
-INPUT=$(cat 2>/dev/null || true)
-
 # Read the pinned effort level from the process env. Claude Code injects
 # settings.json env vars into hook process environments.
 PINNED="${CLAUDE_CODE_EFFORT_LEVEL:-}"

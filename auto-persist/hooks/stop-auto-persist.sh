@@ -17,7 +17,7 @@
 #
 # Design constraints:
 #   - Silent on success (Stop hooks fire after every turn; noise is intolerable)
-#   - Fast (<500ms) — we run after every single turn
+#   - Fast (<1s) — core state writes first, recent files as best-effort second pass
 #   - Fails open — any error logs to a debug file and exits 0
 #   - Writes atomically (tmp file + mv) so partial reads never happen
 #   - Injection-safe — values from the environment / git / filesystem are

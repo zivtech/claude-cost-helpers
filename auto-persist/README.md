@@ -27,7 +27,7 @@ The narrative "what was I thinking about" piece is what `/save-session` is for. 
 | `install.sh` | Copies hook + command, creates state dir, prints settings snippet |
 | `uninstall.sh` | Reverses the install; preserves existing auto-state files unless you ask otherwise |
 
-Total install footprint: one Stop hook, one slash command, one JSON snippet. Zero dependencies beyond `bash`, `python3` (stdlib), `git`, and `find` — already present on macOS and any sane Linux.
+Total install footprint: one Stop hook, one slash command, one JSON snippet. Zero dependencies beyond `bash`, `python3` (stdlib), and `git` — already present on macOS and any sane Linux.
 
 ## Install
 
