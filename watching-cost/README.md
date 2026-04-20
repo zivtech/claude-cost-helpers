@@ -121,6 +121,18 @@ The fix isn't "don't read files" or "don't run tests." It's knowing when you've 
 
 For the full story see [*The Economics of Claude Code, Part 5: The Watching Cost*](https://zivtech.github.io/zivtech-demos/economics-of-claude/watching-cost.html).
 
+## Ecosystem: from warning to fix
+
+This hook is the **sensor** — it tells you when tool output is accumulating. For **automatic compression** that prevents the bloat at the source, pair it with:
+
+- **[RTK](https://github.com/rtk-ai/rtk)** (28K+ stars, actively maintained) — a Rust CLI proxy that compresses Bash command output 60–90% transparently via a `PreToolUse` hook. Builds, test runs, grep results — all compressed before they hit your context.
+
+  ```bash
+  brew install rtk-ai/tap/rtk
+  ```
+
+**Note:** RTK compresses Bash output only — it does not compress results from Claude Code's built-in tools (Read, Grep, Glob, Agent). Our hook monitors all tool output regardless of source, so the two are complementary: RTK prevents Bash bloat, our hook catches everything else.
+
 ## Provenance
 
 This is a productized version of hooks the author has been running in his personal Claude Code config. The threshold numbers (5K per-call, 25K/50K/100K cumulative) are based on observed session patterns where context bloat became the dominant cost factor. They are defaults, not laws — see Configuration above.

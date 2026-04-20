@@ -122,6 +122,18 @@ This hook makes the problem visible at the moment it becomes expensive, so you c
 
 For the full story see [*The Economics of Claude Code, Part 3: The agent that read 200 files*](https://zivtech.github.io/zivtech-demos/economics-of-claude/agent-200-files.html).
 
+## Ecosystem: from warning to fix
+
+This hook is the **sensor** — it tells you when file reads are bloating your context. For **automatic compression** that prevents the bloat in the first place, pair it with:
+
+- **[token-optimizer-mcp](https://github.com/ooples/token-optimizer-mcp)** (148 stars, actively maintained) — an MCP server that provides `smart_read` and `smart_grep` tools returning compressed diffs instead of full file contents. 95%+ token reduction on file reads.
+
+  ```bash
+  npx @anthropic-ai/claude-code mcp add token-optimizer-mcp -- npx -y token-optimizer-mcp
+  ```
+
+Our hook warns you at 50 files. Their MCP makes each file read dramatically cheaper. The two are complementary — install both for the full picture.
+
 ## Provenance
 
 This is a productized version of a monitoring pattern the author runs in his personal Claude Code config. The file path tracking logic and threshold-based warning approach are taken directly from working personal tooling. What's new is packaging it for sharing and adding the `/delegate` command to close the loop from warning to action.

@@ -117,6 +117,18 @@ The deeper recommendation is `/safe-compact`: save the session and start fresh. 
 
 For the full analysis see [*The Economics of Claude Code, Part 4: The Compact Gamble*](https://zivtech.github.io/zivtech-demos/economics-of-claude/compact-gamble.html).
 
+## Ecosystem: from safety net to full solution
+
+This hook is the **30-second version** — a minimal PreCompact safety net. For **progressive compaction with quality scoring**, pair it with:
+
+- **[token-optimizer](https://github.com/alexgreensh/token-optimizer)** (476 stars, actively maintained) — a Claude Code plugin with 7-signal quality scoring, progressive compaction checkpoints, automatic context restoration, and an HTML analytics dashboard.
+
+  ```bash
+  claude plugin install alexgreensh/token-optimizer
+  ```
+
+Our hook writes a marker and prompts Claude to summarize before compact. Token-optimizer tracks quality signals across the session and manages compaction proactively — catching degradation before it becomes an emergency. If you want the simple version, use our hook. If you want the full solution, install their plugin.
+
 ## Provenance
 
 This is a productized version of a hook the author runs in his personal Claude Code config. The pattern of injecting summary prompts via `additionalContext` before destructive operations is battle-tested across months of daily use. What's new is packaging it for sharing and documenting the economics clearly.
