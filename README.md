@@ -4,6 +4,14 @@ Local hooks and slash commands that make Claude Code's cost mechanics visible. N
 
 Companion code for the [*Economics of Claude Code*](https://zivtech.github.io/zivtech-demos/economics-of-claude/) blog series.
 
+## Codex status
+
+This repository does **not** yet ship a Codex-native helper suite.
+
+- The implemented installers and helper directories in this repo are Claude Code-focused.
+- The Codex investigation, live measurements, and implementation planning live in [codex-evaluation/README.md](./codex-evaluation/README.md).
+- The current Codex recommendation is a narrowed, evidence-based subset rather than a one-to-one mirror of the Claude helpers.
+
 ## The helpers
 
 | Helper | Blog post | Hook type | Slash commands | Status |
@@ -13,6 +21,7 @@ Companion code for the [*Economics of Claude Code*](https://zivtech.github.io/zi
 | [Subagent Isolation](subagent-isolation/) | Part 3: The agent that read 200 files | `PostToolUse` on Read/Glob/Grep — warns when file count exceeds threshold | `/delegate` | **Built + tested** |
 | [Compact Gamble](compact-gamble/) | Part 4: The compact gamble | `PreCompact` — saves a marker and urges context preservation before compaction | `/safe-compact` | **Built + tested** |
 | [Watching Cost](watching-cost/) | Part 5: The watching cost | `PostToolUse` (all) — warns when tool output exceeds token threshold | `/to-file` | **Built + tested** |
+| [Delegation Cost](delegation-cost/) | Part 6: The delegation tax | `PostToolUse` on Agent — warns when agent results exceed token threshold | `/delegation-report` | **Built + tested** |
 | [Effort Control](effort-control/) | Part 1 addendum: 4.7's `xhigh` default | `SessionStart` — confirms `CLAUDE_CODE_EFFORT_LEVEL` pin is active | `/deep` | **Built + tested** |
 | [Auto-Persist](auto-persist/) | Part 1 addendum: Stop-hook session state | `Stop` — writes minimal environmental state after every turn | `/last-state` | **Built + tested** |
 
@@ -27,6 +36,8 @@ npx skills add zivtech/claude-cost-helpers
 ```
 
 This installs the 6 skills (save-session, resume-session, split, delegate, safe-compact, to-file). To also get the **automatic warning hooks**, run the hook installers below.
+
+Note: the skills can be useful from other agent environments, but the hook installers and `settings.json` snippets in this repo remain Claude Code-specific unless explicitly stated otherwise.
 
 ### Option B: Hook installers (manual)
 
@@ -97,6 +108,16 @@ If you install all helpers, here's the combined `hooks` block for `~/.claude/set
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "^Agent$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/delegation-cost/delegation-result-monitor.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -141,7 +162,7 @@ If you install all helpers, here's the combined `hooks` block for `~/.claude/set
 }
 ```
 
-Note: the `PostToolUse` array has two entries with different matchers — the file-count monitor only fires on Read/Glob/Grep, while the output-size monitor fires on all tools. The `env.CLAUDE_CODE_EFFORT_LEVEL` pin is what defeats Opus 4.7's first-run `xhigh` override — the env var is load-bearing, the root `effortLevel` field is belt-and-suspenders.
+Note: the `PostToolUse` array has three entries with different matchers — the file-count monitor fires on Read/Glob/Grep, the output-size monitor fires on all tools, and the delegation monitor fires on Agent only. The output-size and delegation monitors will both fire on Agent results (by design — they track different things with different thresholds). The `env.CLAUDE_CODE_EFFORT_LEVEL` pin is what defeats Opus 4.7's first-run `xhigh` override — the env var is load-bearing, the root `effortLevel` field is belt-and-suspenders.
 
 ## How they work together
 
@@ -152,6 +173,7 @@ The helpers are independent — install any subset. But they're designed to laye
 - **Subagent Isolation** is orthogonal: prevents context bloat from file-heavy work
 - **Compact Gamble** protects you when compaction fires: the backup hook means you can recover if a compact drops something
 - **Watching Cost** catches the other source of context bloat: tool output you didn't need in context
+- **Delegation Cost** is the mirror of subagent-isolation: delegation keeps files out of the parent (good), but agent results pile up in it (bad). This hook tracks that accumulation.
 - **Effort Control** pins `CLAUDE_CODE_EFFORT_LEVEL=high` so Opus 4.7 doesn't silently spend `xhigh` per turn
 - **Auto-Persist** writes environmental state after every turn via Stop hook — zero Claude tokens, always current. The automatic counterpart to idle-tax's manual `/save-session`
 
@@ -341,6 +363,49 @@ Below is what each helper contains. The architecture follows the same pattern as
 ```
 
 **Joyus tie-in:** Spec 013, sub-feature C (Tool Output Modes). The platform provides `outputMode` annotations on MCP tool definitions (`stream`/`polling`/`signaled`), watching-cost as a distinct line item in cost dashboards, and operator alerting when watching cost exceeds threshold.
+
+---
+
+### Delegation Cost
+
+**Problem:** Subagent results land in the parent context permanently. A research swarm of 5 agents can return 25K tokens of combined results. Over 20 subsequent turns, that's 500K tokens of reprocessing. The invoice (what the agents spent) is visible. The tax (what you pay to carry their results) is not.
+
+**Hook: `delegation-result-monitor.sh`**
+- Event: `PostToolUse` on `Agent`
+- Behavior: Measures the size of each agent result. When a single result exceeds threshold (default 5,000 tokens, estimated at ~4 chars/token):
+  - Warns: "That agent returned ~N tokens now sitting in context. Consider tighter prompt constraints, writing findings to a file, or splitting the session after synthesizing."
+  - Does NOT block — purely informational
+- Tracks cumulative delegation results per session. Warns when cumulative total crosses higher thresholds (20K, 50K, 100K).
+- Also logs per-agent result sizes for the `/delegation-report` slash command.
+
+**Slash command: `/delegation-report`**
+- Shows per-agent result sizes and estimated carrying cost for the session
+- Calculates warm-cache and blended-rate carrying costs
+- Makes the tax visible so you can decide whether to constrain future agent output or split
+
+**Settings snippet:**
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^Agent$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/delegation-cost/delegation-result-monitor.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Note on overlap with watching-cost:** Both hooks fire on Agent results (watching-cost matches `.*`). This is by design — watching-cost tracks total tool output, delegation-cost tracks agent results specifically with delegation-aware messaging and thresholds. They use separate state files.
+
+**Joyus tie-in:** OMC's subagent tracker already captures per-agent `cost_usd` and `duration_ms` (the invoice). Roadmap: `result_size` tracking on `SubagentStop` events, so the platform can distinguish agents that cost $0.80 and return 2K tokens (efficient) from agents that cost $0.80 and return 15K tokens (expensive to carry). That tax-to-invoice ratio is the fleet-level signal.
 
 ---
 

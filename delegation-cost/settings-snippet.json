@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^Agent$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/delegation-cost/delegation-result-monitor.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -15,7 +15,7 @@ echo ""
 
 FAILED=()
 
-for helper in idle-tax just-one-more-turn subagent-isolation compact-gamble watching-cost effort-control auto-persist; do
+for helper in idle-tax just-one-more-turn subagent-isolation compact-gamble watching-cost delegation-cost effort-control auto-persist; do
     HELPER_DIR="${SCRIPT_DIR}/${helper}"
     if [ -d "$HELPER_DIR" ] && [ -x "${HELPER_DIR}/install.sh" ]; then
         echo "─────────────────────────────────────────────"
@@ -91,6 +91,16 @@ cat <<'COMBINED'
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "^Agent$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/delegation-cost/delegation-result-monitor.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -136,9 +146,9 @@ cat <<'COMBINED'
 COMBINED
 echo "────────────────────────────────────────────────────────────────────"
 echo ""
-echo "Note: the PostToolUse array has two entries with different matchers."
-echo "The file-count monitor only fires on Read/Glob/Grep, while the"
-echo "output-size monitor fires on all tools."
+echo "Note: the PostToolUse array has three entries with different matchers."
+echo "The file-count monitor fires on Read/Glob/Grep, the output-size"
+echo "monitor fires on all tools, and the delegation monitor fires on Agent."
 echo ""
 echo "Done. See each helper's README.md for details."
 echo ""
