@@ -1,6 +1,6 @@
 # Idle Tax — Cache TTL Helper for Claude Code
 
-Companion code for *The Economics of Claude Code, Part 1: The Idle Tax*.
+Companion code for [*The Economics of Claude Code, Part 1: The Idle Tax*](https://zivtech.github.io/zivtech-demos/economics-of-claude/idle-tax.html).
 
 ## What it does
 
@@ -100,7 +100,7 @@ Most of what makes Claude Code expensive isn't the prompts you write — it's th
 
 The fix isn't "stop walking away from your computer." It's making the cost visible at the moment it happens, so you have a real choice: keep going (sometimes that's right) or save and start fresh (often cheaper at scale).
 
-For the full story see *The Economics of Claude Code, Part 1: The Idle Tax*.
+For the full story see [*The Economics of Claude Code, Part 1: The Idle Tax*](https://zivtech.github.io/zivtech-demos/economics-of-claude/idle-tax.html).
 
 ## Provenance
 

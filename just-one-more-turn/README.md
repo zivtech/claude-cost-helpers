@@ -1,6 +1,6 @@
 # Just One More Turn — Context Usage Monitor for Claude Code
 
-Companion code for *The Economics of Claude Code, Part 2: The "just one more turn" trap*.
+Companion code for [*The Economics of Claude Code, Part 2: The "just one more turn" trap*](https://zivtech.github.io/zivtech-demos/economics-of-claude/just-one-more-turn.html).
 
 ## What it does
 
@@ -136,7 +136,7 @@ The idle tax (Helper 01) hits you when you walk away. Context rot hits you when 
 
 The "just one more turn" trap is seductive because each individual turn feels justified. The fix isn't to stop working in long sessions. It's to know when the session has crossed the line from productive to expensive, and to have a frictionless way out: save the state, open a fresh window, keep going.
 
-For the full story see *The Economics of Claude Code, Part 2: The "just one more turn" trap*.
+For the full story see [*The Economics of Claude Code, Part 2: The "just one more turn" trap*](https://zivtech.github.io/zivtech-demos/economics-of-claude/just-one-more-turn.html).
 
 ## Provenance
 

@@ -1,6 +1,6 @@
 # Watching Cost — Output Size Monitor for Claude Code
 
-Companion code for *The Economics of Claude Code, Part 5: The Watching Cost*.
+Companion code for [*The Economics of Claude Code, Part 5: The Watching Cost*](https://zivtech.github.io/zivtech-demos/economics-of-claude/watching-cost.html).
 
 ## What it does
 
@@ -119,7 +119,7 @@ The prompt cache gets most of the attention in Claude Code cost discussions. But
 
 The fix isn't "don't read files" or "don't run tests." It's knowing when you've accumulated enough that a fresh session would be cheaper than continuing. The warning is designed to give you that signal at the moment it matters — not in a post-mortem cost review.
 
-For the full story see *The Economics of Claude Code, Part 5: The Watching Cost*.
+For the full story see [*The Economics of Claude Code, Part 5: The Watching Cost*](https://zivtech.github.io/zivtech-demos/economics-of-claude/watching-cost.html).
 
 ## Provenance
 

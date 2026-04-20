@@ -1,6 +1,6 @@
 # Compact Gamble — Pre-Compact Safety Net for Claude Code
 
-Companion code for *The Economics of Claude Code, Part 4: The Compact Gamble*.
+Companion code for [*The Economics of Claude Code, Part 4: The Compact Gamble*](https://zivtech.github.io/zivtech-demos/economics-of-claude/compact-gamble.html).
 
 ## The problem
 
@@ -115,7 +115,7 @@ This helper doesn't eliminate that risk — it makes it visible and gives Claude
 
 The deeper recommendation is `/safe-compact`: save the session and start fresh. That's almost always the right move economically and for context hygiene. But when you're going to compact anyway, this makes it as safe as it can be.
 
-For the full analysis see *The Economics of Claude Code, Part 4: The Compact Gamble*.
+For the full analysis see [*The Economics of Claude Code, Part 4: The Compact Gamble*](https://zivtech.github.io/zivtech-demos/economics-of-claude/compact-gamble.html).
 
 ## Provenance
 

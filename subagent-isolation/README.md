@@ -1,6 +1,6 @@
 # Subagent Isolation — File Count Monitor for Claude Code
 
-Companion code for *The Economics of Claude Code, Part 3: The agent that read 200 files*.
+Companion code for [*The Economics of Claude Code, Part 3: The agent that read 200 files*](https://zivtech.github.io/zivtech-demos/economics-of-claude/agent-200-files.html).
 
 ## What it does
 
@@ -120,7 +120,7 @@ Subagent isolation is the structural fix: spin up a fresh context, do the heavy 
 
 This hook makes the problem visible at the moment it becomes expensive, so you can decide when to delegate rather than discovering the bloat after the fact via a surprising invoice.
 
-For the full story see *The Economics of Claude Code, Part 3: The agent that read 200 files*.
+For the full story see [*The Economics of Claude Code, Part 3: The agent that read 200 files*](https://zivtech.github.io/zivtech-demos/economics-of-claude/agent-200-files.html).
 
 ## Provenance
 

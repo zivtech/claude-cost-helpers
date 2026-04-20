@@ -2,7 +2,7 @@
 
 Local hooks and slash commands that make Claude Code's cost mechanics visible. No platform dependency — these run in your `~/.claude/` config on any machine with `bash` and `python3`.
 
-Companion code for the *Economics of Claude Code* blog series.
+Companion code for the [*Economics of Claude Code*](https://zivtech.github.io/zivtech-demos/economics-of-claude/) blog series.
 
 ## The helpers
 
