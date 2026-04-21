@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.codex/hooks/cost-helpers/reasoning-hygiene-banner/reasoning_hygiene_banner.py",
+            "timeout": 10,
+            "statusMessage": "Checking Codex reasoning defaults..."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,2 +1,4 @@
 # Exclude OMC local session state from public repo
 .omc/
+__pycache__/
+*.pyc

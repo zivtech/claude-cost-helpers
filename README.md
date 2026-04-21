@@ -6,11 +6,12 @@ Companion code for the [*Economics of Claude Code*](https://zivtech.github.io/zi
 
 ## Codex status
 
-This repository does **not** yet ship a Codex-native helper suite.
+This repository now includes a **limited Codex helper lane** under [codex-helpers/](./codex-helpers/).
 
-- The implemented installers and helper directories in this repo are Claude Code-focused.
-- The Codex investigation, live measurements, and implementation planning live in [codex-evaluation/README.md](./codex-evaluation/README.md).
-- The current Codex recommendation is a narrowed, evidence-based subset rather than a one-to-one mirror of the Claude helpers.
+- The main shipping helper set in this repo is still Claude Code-focused.
+- The Codex helper lane currently ships a narrowed subset only: `stop-snapshot`, `reasoning-hygiene-banner`, `turn-rot`, and `bash-output-watch`.
+- The Codex investigation, live measurements, and design rationale live in [codex-evaluation/README.md](./codex-evaluation/README.md).
+- The current Codex recommendation remains a narrowed, evidence-based subset rather than a one-to-one mirror of the Claude helpers.
 
 ## The helpers
 

@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.codex/hooks/cost-helpers/turn-rot/turn_rot.py",
+            "timeout": 10,
+            "statusMessage": "Checking session growth..."
+          }
+        ]
+      }
+    ]
+  }
+}

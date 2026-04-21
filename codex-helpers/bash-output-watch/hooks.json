@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.codex/hooks/cost-helpers/bash-output-watch/bash_output_watch.py",
+            "timeout": 10,
+            "statusMessage": "Reviewing Bash output size..."
+          }
+        ]
+      }
+    ]
+  }
+}

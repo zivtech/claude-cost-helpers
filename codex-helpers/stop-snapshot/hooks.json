@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.codex/hooks/cost-helpers/stop-snapshot/stop_snapshot.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
