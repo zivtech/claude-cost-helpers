@@ -26,11 +26,14 @@ if [ ! -d "$CLAUDE_DIR" ]; then
 fi
 
 # 2. Install the hook
-echo "[1/3] Installing hook script..."
+echo "[1/3] Installing hook scripts..."
 mkdir -p "$HOOK_DIR"
 cp "${SCRIPT_DIR}/delegation-result-monitor.sh" "${HOOK_DIR}/delegation-result-monitor.sh"
 chmod +x "${HOOK_DIR}/delegation-result-monitor.sh"
 echo "      -> ${HOOK_DIR}/delegation-result-monitor.sh"
+cp "${SCRIPT_DIR}/agent-prompt-lint.sh" "${HOOK_DIR}/agent-prompt-lint.sh"
+chmod +x "${HOOK_DIR}/agent-prompt-lint.sh"
+echo "      -> ${HOOK_DIR}/agent-prompt-lint.sh"
 
 # 3. Install slash command (with backup if it already exists)
 echo "[2/3] Installing slash commands..."
@@ -57,8 +60,8 @@ echo "----------------------------------------"
 cat "${SCRIPT_DIR}/settings-snippet.json"
 echo "----------------------------------------"
 echo ""
-echo "If your settings.json already has a PostToolUse array, append the"
-echo "inner hook object to that array instead of overwriting."
+echo "If your settings.json already has PreToolUse or PostToolUse arrays,"
+echo "append the inner hook objects to those arrays instead of overwriting."
 echo ""
 echo "Note: if you also use the watching-cost helper, both will fire on"
 echo "Agent results (watching-cost matches all tools). This is expected —"
