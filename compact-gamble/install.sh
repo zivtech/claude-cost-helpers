@@ -26,11 +26,14 @@ if [ ! -d "$CLAUDE_DIR" ]; then
 fi
 
 # 2. Install the hook
-echo "[1/3] Installing hook script..."
+echo "[1/3] Installing hook scripts..."
 mkdir -p "$HOOK_DIR"
 cp "${SCRIPT_DIR}/pre-compact-backup.sh" "${HOOK_DIR}/pre-compact-backup.sh"
 chmod +x "${HOOK_DIR}/pre-compact-backup.sh"
 echo "      → ${HOOK_DIR}/pre-compact-backup.sh"
+cp "${SCRIPT_DIR}/post-compact-verify.sh" "${HOOK_DIR}/post-compact-verify.sh"
+chmod +x "${HOOK_DIR}/post-compact-verify.sh"
+echo "      → ${HOOK_DIR}/post-compact-verify.sh"
 
 # 3. Install slash command (with backup if it already exists)
 echo "[2/3] Installing slash command..."
@@ -57,8 +60,8 @@ echo "----------------------------------------"
 cat "${SCRIPT_DIR}/settings-snippet.json"
 echo "----------------------------------------"
 echo ""
-echo "If your settings.json already has a PreCompact array, append the"
-echo "inner hook object to that array instead of overwriting."
+echo "If your settings.json already has PreCompact or UserPromptSubmit arrays,"
+echo "append the inner hook objects to those arrays instead of overwriting."
 echo ""
 
 # 5. Verification instructions

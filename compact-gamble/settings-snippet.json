@@ -10,6 +10,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/compact-gamble/post-compact-verify.sh",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

@@ -76,6 +76,11 @@ else
     MARKER_NOTE="WARNING: Could not write marker file (disk full?)."
 fi
 
+# Write a compact-pending flag for post-compact verification
+STATE_DIR="${HOME}/.claude/.session-state"
+mkdir -p "$STATE_DIR" 2>/dev/null
+echo "$ISO_TIMESTAMP" > "${STATE_DIR}/${SESSION_ID}.compact-pending" 2>/dev/null
+
 cat <<EOF
 {"continue": true, "additionalContext": "PRE-COMPACT BACKUP: Compaction is about to run. ${MARKER_NOTE} Compaction is lossy — Claude decides what to keep. If something critical gets dropped, you can reference this marker to know when the compact happened.\n\nIMPORTANT: Before this compact proceeds, please briefly summarize: (1) what we were working on, (2) key decisions made, (3) current state of files, (4) the next step. This will be preserved in the compacted context.\n\nConsider: starting fresh with /save-session is often cheaper than compacting. Compaction keeps a stale session alive; a fresh session starts with a clean, warm cache."}
 EOF
