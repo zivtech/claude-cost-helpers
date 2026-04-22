@@ -88,17 +88,43 @@ if [ -f "$AGENTS_FILE" ]; then
     AGENT_COUNT=$(wc -l < "$AGENTS_FILE" | tr -d ' ')
 fi
 
+# Cache-warming check: did the cache go cold while this agent was running?
+CACHE_WARNING=""
+ACTIVITY_FILE="${STATE_DIR}/${SESSION_ID}.last-activity"
+if [ -f "$ACTIVITY_FILE" ]; then
+    LAST_ACTIVITY=$(cat "$ACTIVITY_FILE" 2>/dev/null || echo 0)
+    NOW=$(date +%s)
+    IDLE_GAP=$((NOW - LAST_ACTIVITY))
+    CACHE_COLD_THRESHOLD="${CLAUDE_CACHE_COLD_THRESHOLD:-240}"
+    if [ "$IDLE_GAP" -ge "$CACHE_COLD_THRESHOLD" ]; then
+        IDLE_MIN=$((IDLE_GAP / 60))
+        CACHE_WARNING="Your parent cache likely went cold while this agent ran (~${IDLE_MIN} min idle). Next time: (1) keep the parent session active with small messages while agents work, (2) use run_in_background so you can keep working, or (3) /save-session before dispatching long-running agents."
+    fi
+fi
+
 # Collect warning messages
 WARNINGS=""
+
+# Cache-warming warning goes first — it's the most actionable
+if [ -n "$CACHE_WARNING" ]; then
+    WARNINGS="$CACHE_WARNING"
+fi
 
 # Per-result warning
 FILE_WRITE_THRESHOLD="${CLAUDE_DELEGATION_FILE_THRESHOLD:-8000}"
 if [ "$CALL_TOKENS" -ge "$FILE_WRITE_THRESHOLD" ]; then
     CALL_K=$(( CALL_TOKENS / 1000 ))
-    WARNINGS="That agent returned ~${CALL_K}K tokens — too large for inline results. Next time, ask the agent to write its findings to a file and return only a summary. This keeps the delegation benefit without the delegation tax."
+    RESULT_MSG="That agent returned ~${CALL_K}K tokens — too large for inline results. Next time, ask the agent to write its findings to a file and return only a summary. This keeps the delegation benefit without the delegation tax."
 elif [ "$CALL_TOKENS" -ge "$PER_RESULT_THRESHOLD" ]; then
     CALL_K=$(( CALL_TOKENS / 1000 ))
-    WARNINGS="That agent returned ~${CALL_K}K tokens now sitting in context. Every future message reprocesses it. Consider: (1) tighter prompt constraints ('report in under 200 words'), (2) writing findings to a file instead of returning inline, (3) splitting the session after synthesizing."
+    RESULT_MSG="That agent returned ~${CALL_K}K tokens now sitting in context. Every future message reprocesses it. Consider: (1) tighter prompt constraints ('report in under 200 words'), (2) writing findings to a file instead of returning inline, (3) splitting the session after synthesizing."
+fi
+if [ -n "${RESULT_MSG:-}" ]; then
+    if [ -n "$WARNINGS" ]; then
+        WARNINGS="${WARNINGS}\n\n${RESULT_MSG}"
+    else
+        WARNINGS="$RESULT_MSG"
+    fi
 fi
 
 # Cumulative threshold warnings (each fires only once per session)
