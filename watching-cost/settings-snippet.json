@@ -18,6 +18,11 @@
             "type": "command",
             "command": "$HOME/.claude/hooks/cost-helpers/watching-cost/ci-suggestion.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/watching-cost/redirect-suggestion.sh",
+            "timeout": 5
           }
         ]
       }

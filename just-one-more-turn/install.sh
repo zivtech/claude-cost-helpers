@@ -26,11 +26,14 @@ if [ ! -d "$CLAUDE_DIR" ]; then
 fi
 
 # 2. Install the hook
-echo "[1/3] Installing hook script..."
+echo "[1/3] Installing hook scripts..."
 mkdir -p "$HOOK_DIR"
 cp "${SCRIPT_DIR}/context-usage-monitor.sh" "${HOOK_DIR}/context-usage-monitor.sh"
 chmod +x "${HOOK_DIR}/context-usage-monitor.sh"
 echo "      → ${HOOK_DIR}/context-usage-monitor.sh"
+cp "${SCRIPT_DIR}/starting-context-report.sh" "${HOOK_DIR}/starting-context-report.sh"
+chmod +x "${HOOK_DIR}/starting-context-report.sh"
+echo "      → ${HOOK_DIR}/starting-context-report.sh"
 
 # 3. Install slash commands (with backup if they already exist)
 echo "[2/3] Installing slash commands..."

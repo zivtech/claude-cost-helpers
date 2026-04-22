@@ -10,6 +10,15 @@
             "statusMessage": "Checking context usage..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/just-one-more-turn/starting-context-report.sh",
+            "timeout": 5
+          }
+        ]
       }
     ]
   }

@@ -86,6 +86,10 @@ if [ -f "$WARNED_FILE" ]; then
     LAST_WARNED=$(cat "$WARNED_FILE")
 fi
 
+# Early warning threshold (lighter nudge before things get heavy)
+EARLY_THRESHOLD="${CLAUDE_FILE_EARLY_THRESHOLD:-15}"
+EARLY_WARNED_FILE="${STATE_DIR}/${SESSION_ID}.files-early-warned"
+
 # Determine whether to warn
 SINCE_LAST_WARN=$((UNIQUE_COUNT - LAST_WARNED))
 
@@ -94,16 +98,22 @@ if [ "$UNIQUE_COUNT" -ge "$THRESHOLD" ] && [ "$SINCE_LAST_WARN" -ge "$WARN_INTER
     echo "$UNIQUE_COUNT" > "$WARNED_FILE"
 
     if [ "$LAST_WARNED" -eq 0 ]; then
-        # First warning
+        # First heavy warning
         cat <<EOF
 {"continue": true, "additionalContext": "FILE COUNT WARNING (${UNIQUE_COUNT} unique files): This session has read ${UNIQUE_COUNT} unique files. The context is getting heavy with file content. Consider using the \`Agent\` tool to delegate file-heavy work — subagents get their own context window and only return a summary.\n\nTry: /delegate to offload the next research or audit task to a subagent.\n\nThis is informational — your work will proceed normally."}
 EOF
     else
-        # Subsequent warning
+        # Subsequent heavy warning
         cat <<EOF
 {"continue": true, "additionalContext": "FILE COUNT WARNING (${UNIQUE_COUNT} unique files): This session has now read ${UNIQUE_COUNT} unique files. Context bloat is compounding — each turn now carries all of that file content. Delegating remaining file-heavy tasks to subagents via the \`Agent\` tool will keep this session lean.\n\nTry: /delegate to offload the next research or audit task to a subagent.\n\nThis is informational — your work will proceed normally."}
 EOF
     fi
+elif [ "$UNIQUE_COUNT" -ge "$EARLY_THRESHOLD" ] && [ ! -f "$EARLY_WARNED_FILE" ]; then
+    # Early warning — fires once
+    touch "$EARLY_WARNED_FILE"
+    cat <<EOF
+{"continue": true, "additionalContext": "FILE COUNT HEADS-UP (${UNIQUE_COUNT} unique files): This session has read ${UNIQUE_COUNT} unique files so far. That file content stays in context permanently. If there is more file-heavy exploration ahead, consider delegating it to a subagent — they get their own context and only return a summary.\n\nThis is informational — your work will proceed normally."}
+EOF
 else
     echo '{"continue": true, "suppressOutput": true}'
 fi

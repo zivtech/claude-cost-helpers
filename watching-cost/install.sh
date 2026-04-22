@@ -34,6 +34,9 @@ echo "      → ${HOOK_DIR}/output-size-monitor.sh"
 cp "${SCRIPT_DIR}/ci-suggestion.sh" "${HOOK_DIR}/ci-suggestion.sh"
 chmod +x "${HOOK_DIR}/ci-suggestion.sh"
 echo "      → ${HOOK_DIR}/ci-suggestion.sh"
+cp "${SCRIPT_DIR}/redirect-suggestion.sh" "${HOOK_DIR}/redirect-suggestion.sh"
+chmod +x "${HOOK_DIR}/redirect-suggestion.sh"
+echo "      → ${HOOK_DIR}/redirect-suggestion.sh"
 
 # 3. Install slash command (with backup if it already exists)
 echo "[2/3] Installing slash commands..."
