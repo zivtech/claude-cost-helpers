@@ -82,11 +82,21 @@ if [ -f "$WARNED_FILE" ]; then
     WARNED_AT=$(cat "$WARNED_FILE" 2>/dev/null || echo "")
 fi
 
+# Count agents that have returned results this session
+AGENT_COUNT=0
+if [ -f "$AGENTS_FILE" ]; then
+    AGENT_COUNT=$(wc -l < "$AGENTS_FILE" | tr -d ' ')
+fi
+
 # Collect warning messages
 WARNINGS=""
 
 # Per-result warning
-if [ "$CALL_TOKENS" -ge "$PER_RESULT_THRESHOLD" ]; then
+FILE_WRITE_THRESHOLD="${CLAUDE_DELEGATION_FILE_THRESHOLD:-8000}"
+if [ "$CALL_TOKENS" -ge "$FILE_WRITE_THRESHOLD" ]; then
+    CALL_K=$(( CALL_TOKENS / 1000 ))
+    WARNINGS="That agent returned ~${CALL_K}K tokens — too large for inline results. Next time, ask the agent to write its findings to a file and return only a summary. This keeps the delegation benefit without the delegation tax."
+elif [ "$CALL_TOKENS" -ge "$PER_RESULT_THRESHOLD" ]; then
     CALL_K=$(( CALL_TOKENS / 1000 ))
     WARNINGS="That agent returned ~${CALL_K}K tokens now sitting in context. Every future message reprocesses it. Consider: (1) tighter prompt constraints ('report in under 200 words'), (2) writing findings to a file instead of returning inline, (3) splitting the session after synthesizing."
 fi
@@ -127,6 +137,18 @@ for THRESHOLD in "${CUM_THRESHOLDS[@]}"; do
         fi
     fi
 done
+
+# Swarm warning — fires once when 3+ agents have returned results
+SWARM_WARNED_FILE="${STATE_DIR}/${SESSION_ID}.delegation-swarm-warned"
+if [ "$AGENT_COUNT" -ge 3 ] && [ ! -f "$SWARM_WARNED_FILE" ]; then
+    touch "$SWARM_WARNED_FILE"
+    SWARM_MSG="${AGENT_COUNT} agents have returned results this session. That's a lot of delegation weight in one context. Consider \`/save-session\` and continuing fresh."
+    if [ -n "$WARNINGS" ]; then
+        WARNINGS="${WARNINGS}\n\n${SWARM_MSG}"
+    else
+        WARNINGS="$SWARM_MSG"
+    fi
+fi
 
 # Output the result
 if [ -n "$WARNINGS" ]; then

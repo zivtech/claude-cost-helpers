@@ -87,7 +87,7 @@ WARNINGS=""
 # Per-call warning
 if [ "$CALL_TOKENS" -ge "$PER_CALL_THRESHOLD" ]; then
     CALL_K=$(( CALL_TOKENS / 1000 ))
-    WARNINGS="That tool returned ~${CALL_K}k tokens of output now sitting in context. Every future message in this session will reprocess it. Consider: (1) redirecting long output to a file with \`/to-file\`, (2) using a subagent for output-heavy work, (3) being specific about what you need (e.g., 'show me lines 40-60' instead of 'show me the file')."
+    WARNINGS="That tool returned ~${CALL_K}k tokens of output now sitting in context. Every future message in this session will reprocess it. Consider: (1) redirecting long output to a file with \`/to-file\`, (2) using a subagent for output-heavy work, (3) being specific about what you need (e.g., 'show me lines 40-60' instead of 'show me the file'), (4) asking for filtered output ('show me only failures' or 'just the error lines')."
 fi
 
 # Cumulative threshold warnings (each fires only once per session)
