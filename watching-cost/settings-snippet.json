@@ -10,6 +10,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/watching-cost/ci-suggestion.sh",
+            "timeout": 5
+          }
+        ]
       }
     ]
   }

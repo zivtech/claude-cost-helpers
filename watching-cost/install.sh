@@ -26,11 +26,14 @@ if [ ! -d "$CLAUDE_DIR" ]; then
 fi
 
 # 2. Install the hook
-echo "[1/3] Installing hook script..."
+echo "[1/3] Installing hook scripts..."
 mkdir -p "$HOOK_DIR"
 cp "${SCRIPT_DIR}/output-size-monitor.sh" "${HOOK_DIR}/output-size-monitor.sh"
 chmod +x "${HOOK_DIR}/output-size-monitor.sh"
 echo "      → ${HOOK_DIR}/output-size-monitor.sh"
+cp "${SCRIPT_DIR}/ci-suggestion.sh" "${HOOK_DIR}/ci-suggestion.sh"
+chmod +x "${HOOK_DIR}/ci-suggestion.sh"
+echo "      → ${HOOK_DIR}/ci-suggestion.sh"
 
 # 3. Install slash command (with backup if it already exists)
 echo "[2/3] Installing slash commands..."
