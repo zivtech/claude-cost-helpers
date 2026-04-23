@@ -2,13 +2,13 @@
 
 This spec proposes seven upgrades to the meta-router pattern used in the `zivtech/drupal-meta-skills` and `zivtech/a11y-meta-skills` repos. Each upgrade maps to a cost mechanic already documented and shipped as a helper in this repo.
 
-Baseline numbers come from `../benchmark/results.md`. Reductions listed below are the parent-context savings measured on the a11y-meta-skills bundle (the worst-case of the two) unless noted.
+Baseline numbers come from `../benchmark/results.md`. The benchmark compares three scenarios: **F. Flattened** (straw-man — all SKILL.md and agent bodies preloaded), **A. As-implemented** (today), and **C. Optimized** (router-v2). drupal-meta-skills currently saves 83% at turn 10 vs the straw-man; router-v2 would save another 82% on top. a11y-meta-skills currently saves only 30% vs the straw-man because its SKILL.md files contain the full protocol inline; router-v2 would save another 97%. Reductions below reference the worst case of the two bundles unless noted.
 
 ## The seven upgrades
 
 ### 1. Stubs-only at boot
 
-**Problem.** A `SKILL.md` whose body contains the full skill protocol costs the parent session that body on turn 1, whether the skill is used or not. a11y-meta-skills preloads 41,649 tokens this way — 13.88% of the rot zone before the user says anything. drupal-meta-skills preloads 8,807 tokens for the same reason, which is cheap until a session installs a second or third meta-skill bundle.
+**Problem.** A `SKILL.md` whose body contains the full skill protocol costs the parent session that body on turn 1, whether the skill is used or not. a11y-meta-skills preloads 41,649 tokens this way — 14.05% of the rot zone before the user says anything (scenario A). drupal-meta-skills preloads only 8,807 tokens for the same reason because its SKILL.md files act as routers that delegate to agents, not as protocols (which is why its A vs F saving is already 83%).
 
 **Mechanic.** `watching-cost/` — every byte in context is reprocessed on every subsequent turn.
 
@@ -24,7 +24,7 @@ Baseline numbers come from `../benchmark/results.md`. Reductions listed below ar
 
 **Change.** The stub's `handoff` action spawns an `Agent` tool call with `subagent_type=<name>`. The skill body lives inside that subagent's context. Only a short summary (≤500 tokens) returns to the parent. drupal-meta-skills already does this (`drupal-planner/SKILL.md` step 5). a11y-meta-skills currently executes inline.
 
-**Expected saving.** Scenario C in `../benchmark/results.md` — 97% parent-context reduction for a11y, 81% for drupal at turn 10.
+**Expected saving.** Scenario C vs F in `../benchmark/results.md` — 97% reduction vs the flattened straw-man for drupal, 98% for a11y. The bulk of the win for drupal-meta-skills is already realized in scenario A (83% saved); the bulk of the win for a11y-meta-skills is still ahead of it (97% additional saving vs today).
 
 ### 3. Cache-stable router prompt
 

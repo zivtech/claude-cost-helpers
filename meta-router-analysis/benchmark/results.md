@@ -7,7 +7,7 @@ cd meta-router-analysis/benchmark
 python3 scenarios.py --markdown > results.md
 ```
 
-The script clones [zivtech/drupal-meta-skills](https://github.com/zivtech/drupal-meta-skills) and [zivtech/a11y-meta-skills](https://github.com/zivtech/a11y-meta-skills) into `/tmp/meta-skills-bench/` (override with `--cache-dir`), measures every `SKILL.md`, and computes three loading strategies.
+The script clones [zivtech/drupal-meta-skills](https://github.com/zivtech/meta-skills) and [zivtech/a11y-meta-skills](https://github.com/zivtech/a11y-meta-skills) into `/tmp/meta-skills-bench/` (override with `--cache-dir`), measures every `SKILL.md` file and every `.claude/agents/*.md` file, and computes three loading strategies.
 
 Thresholds (from this repo's helpers):
 
@@ -15,7 +15,13 @@ Thresholds (from this repo's helpers):
 - **Subagent-isolation warning** — 50 unique files. Source: `subagent-isolation/` (`CLAUDE_FILE_THRESHOLD` default).
 - **Cache TTL** — 300 seconds. Source: `idle-tax/` (Anthropic prompt-cache TTL).
 
-Token counts use the `char/4` estimator already used by `watching-cost/` and `just-one-more-turn/`. Treat results as a rough floor, not a precise ceiling. Relative differences between strategies are robust to that approximation.
+Token counts use the `char/4` estimator also used by `watching-cost/` and `just-one-more-turn/`. Treat results as a rough floor, not a precise ceiling. Relative differences between strategies are robust to that approximation.
+
+## The three strategies
+
+- **F. Flattened (straw-man).** Every SKILL.md body and every matching agent body preloaded into the parent context at turn 1. Represents "what if the router pattern were inlined instead of delegated to subagents?"
+- **A. As-implemented.** What the bundle does today. SKILL.md bodies enter the parent context when the bundle is installed (that is how agent clients work today). Agent bodies stay on disk and are only loaded when an `Agent(subagent_type=...)` call spawns them; those bodies live in a subagent context and return only a summary to the parent.
+- **C. Optimized (router-v2).** SKILL.md files shrink to frontmatter-only stubs; the full protocol moves into `.claude/agents/`. A lightweight router prompt sits above the stubs; matched skill spawns a subagent and returns a summary. See `../improvements/router-v2-spec.md`.
 
 ## Per-file token counts
 
@@ -29,71 +35,76 @@ Token counts use the `char/4` estimator already used by `watching-cost/` and `ju
 | drupal-config-executor/SKILL.md | 994 | 78 | 917 |
 | drupal-critic/SKILL.md | 2,082 | 132 | 1,950 |
 | drupal-planner/SKILL.md | 2,124 | 90 | 2,034 |
-| **drupal-meta-skills total (8 files)** | **8,807** | **657** | **8,151** |
+| **drupal-meta-skills SKILL.md total (8 files)** | **8,807** | **657** | **8,151** |
+| drupal-critic.md (agent) | 2,045 | — | — |
+| drupal-taxonomy-planner.md (agent) | 4,671 | — | — |
+| drupal-theme-planner.md (agent) | 5,585 | — | — |
+| drupal-search-planner.md (agent) | 5,795 | — | — |
+| drupal-canvas-planner.md (agent) | 5,959 | — | — |
+| drupal-content-model-planner.md (agent) | 6,291 | — | — |
+| drupal-config-executor.md (agent) | 7,415 | — | — |
+| drupal-planner.md (agent) | 8,214 | — | — |
+| **drupal-meta-skills agent total (8 files)** | **45,823** | — | — |
 | perspective-audit/SKILL.md | 1,804 | 99 | 1,706 |
 | a11y-test/SKILL.md | 8,112 | 93 | 8,020 |
 | a11y-critic/SKILL.md | 13,912 | 106 | 13,807 |
 | a11y-planner/SKILL.md | 17,821 | 105 | 17,716 |
-| **a11y-meta-skills total (4 files)** | **41,649** | **403** | **41,249** |
+| **a11y-meta-skills SKILL.md total (4 files)** | **41,649** | **403** | **41,249** |
+| a11y-critic.md (agent) | 9,279 | — | — |
+| a11y-planner.md (agent) | 9,279 | — | — |
+| **a11y-meta-skills agent total (2 files)** | **18,526** | — | — |
 
 ## drupal-meta-skills
 
-- Skills: **8**
-- Bundle body tokens (sum of all SKILL.md bodies): **8,151**
-- Bundle stub tokens (frontmatter only): **657**
-- Largest single skill body: **2,034**
+- Skills: **8** · Agents: **8**
+- Sum of SKILL.md bodies: **8,151** tokens
+- Sum of agent bodies: **45,823** tokens
+- Sum of frontmatter stubs: **657** tokens
+- Largest skill body: **2,034** · Largest agent body: **8,214**
 
 | Scenario | Turn-1 parent | Turn-10 parent | % of 300K rot | Parent files | Volatile tokens |
 |---|---:|---:|---:|---:|---:|
-| A. Preload all | 8,807 | 8,807 | 2.94% | 8 | 8,807 |
-| B. Router + lazy | 1,157 | 1,944 | 0.65% | 9 | 787 |
-| C. Router + lazy + subagent | 1,157 | 1,657 | 0.55% | 2 | 500 |
+| F. Flattened (straw-man) | 54,630 | 54,630 | 18.21% | 16 | 54,630 |
+| A. As-implemented | 8,807 | 9,307 | 3.10% | 8 | 8,807 |
+| C. Optimized (router-v2) | 1,157 | 1,657 | 0.55% | 2 | 500 |
 
-**Lazy saves 78%** of parent context at turn 10 vs preload. **Lazy+subagent saves 81%.**
+- **As-implemented vs straw-man (A vs F):** saves **83%** of parent context at turn 10. drupal-meta-skills' current router-to-agent pattern is already doing most of the work.
+- **Optimized vs straw-man (C vs F):** saves **97%**.
+- **Optimized vs as-implemented (C vs A):** saves an additional **82%** on top of what the bundle already does today. The remaining win comes from shrinking the SKILL.md files themselves to stubs and routing the body into the subagent.
 
 ## a11y-meta-skills
 
-- Skills: **4**
-- Bundle body tokens: **41,249**
-- Bundle stub tokens (frontmatter only): **403**
-- Largest single skill body: **17,716** (a11y-planner)
+- Skills: **4** · Agents: **2**
+- Sum of SKILL.md bodies: **41,249** tokens
+- Sum of agent bodies: **18,526** tokens
+- Sum of frontmatter stubs: **403** tokens
+- Largest skill body: **17,716** (a11y-planner) · Largest agent body: **9,279**
 
 | Scenario | Turn-1 parent | Turn-10 parent | % of 300K rot | Parent files | Volatile tokens |
 |---|---:|---:|---:|---:|---:|
-| A. Preload all | 41,649 | 41,649 | 13.88% | 4 | 41,649 |
-| B. Router + lazy | 903 | 14,710 | 4.90% | 5 | 13,807 |
-| C. Router + lazy + subagent | 903 | 1,403 | 0.47% | 2 | 500 |
+| F. Flattened (straw-man) | 60,175 | 60,175 | 20.06% | 6 | 60,175 |
+| A. As-implemented | 41,649 | 42,149 | 14.05% | 4 | 41,649 |
+| C. Optimized (router-v2) | 903 | 1,403 | 0.47% | 2 | 500 |
 
-**Lazy saves 65%** of parent context at turn 10 vs preload. **Lazy+subagent saves 97%.**
-
-## Headline numbers
-
-| Bundle | Preload turn-1 | Router+subagent turn-1 | Reduction |
-|---|---:|---:|---:|
-| drupal-meta-skills | 8,807 | 1,157 | **87%** |
-| a11y-meta-skills | 41,649 | 903 | **98%** |
-
-At turn 10 (one skill actually used), with subagent isolation:
-
-| Bundle | Preload turn-10 | Router+subagent turn-10 | Reduction |
-|---|---:|---:|---:|
-| drupal-meta-skills | 8,807 | 1,657 | **81%** |
-| a11y-meta-skills | 41,649 | 1,403 | **97%** |
+- **As-implemented vs straw-man (A vs F):** saves only **30%** of parent context at turn 10. The bundle keeps its agents lazy, but SKILL.md files contain the full protocol, so most of the weight is still preloaded.
+- **Optimized vs straw-man (C vs F):** saves **98%**.
+- **Optimized vs as-implemented (C vs A):** saves an additional **97%**. Almost all of a11y-meta-skills' turn-1 cost today is addressable by moving the SKILL.md protocol bodies into agent files.
 
 ## What the numbers show
 
-1. **Bundle shape matters more than strategy choice when skills are already small.** drupal-meta-skills keeps its SKILL.md files under 2.1K tokens each; its worst preload case is 2.94% of the rot zone. For that bundle, lazy loading is a modest win at turn 10 but a substantial one at turn 1.
-2. **Preload is actively expensive when SKILL.md contains the full skill body.** a11y-meta-skills has a single SKILL.md (a11y-planner) at 17,716 tokens. Preloading all four puts 41K tokens into the parent session before the user has asked anything. That is one-seventh of the rot budget, spent on skills the user may never invoke.
-3. **Subagent isolation flattens the curve.** Scenario C stays under 1.7K tokens at turn 10 for *both* bundles. The size of the skill body no longer matters to parent-context accounting, only the size of the subagent's returned summary.
+1. **drupal-meta-skills is already doing most of it right.** The 83% A-vs-F saving validates the existing router+agent pattern. SKILL.md files are small (≤2,124 tokens) and act as routers; agent bodies live on disk until spawned.
+2. **a11y-meta-skills is the cautionary case.** A11y SKILL.md bodies are 8K–17.7K tokens each; the bundle keeps agent files on disk but duplicates the full protocol inline in SKILL.md. That leaves 41K tokens in parent context at turn 1 — 14% of the rot zone.
+3. **The subagent layer is doing real work.** Without it (scenario F), both bundles would preload 54K–60K tokens. With it (scenario A for drupal), the bundle operates at 9K tokens. With stubs-only on top (scenario C), both bundles drop under 2K.
 4. **Stubs are cheap enough to preload.** 657 tokens for eight drupal stubs; 403 tokens for four a11y stubs. The stubs table is a fixed cost that buys you a routing decision without loading any body.
-5. **The 50-file subagent-isolation warning is not at risk.** Scenario B adds +9 files (drupal) or +5 files (a11y); scenario C adds +2. Even combined with a real working session, neither crosses the 50-file threshold on its own.
+5. **The 50-file subagent-isolation warning is not at risk.** Scenario A contributes 4–8 files to the parent session. Scenario C contributes 2. Even combined with a real working session, neither crosses the 50-file threshold on its own.
 
 ## Cache-cold exposure
 
-With the `idle-tax` 5-minute TTL in mind, "volatile tokens" in the tables above are the tokens that a cold-cache event forces to re-cache at 1.25× base cost:
+With the `idle-tax` 5-minute TTL, "volatile tokens" in the tables above are the tokens that a cold-cache event forces to re-cache at 1.25× base cost:
 
-- **Preload**: every byte of every skill body is volatile. For a11y the cold-cache event costs 1.25× on ~41K tokens = 52K effective tokens' worth of re-cache, roughly 12.5× more than the warm-cache path would have been for the same content.
-- **Router + lazy**: only the one loaded skill body is volatile. For a11y that is still 13.8K tokens, so the cold-cache event still hurts — but less.
-- **Router + lazy + subagent**: only the ~500-token subagent summary is volatile. The skill body lives in a subagent context whose cache is its own concern and which closes after the skill finishes.
+- **Flattened (F):** every byte of every SKILL.md and every agent is volatile. 54–60K tokens worth of re-cache premium per TTL expiry.
+- **As-implemented (A) — drupal:** 8,807 tokens volatile. Mostly tolerable.
+- **As-implemented (A) — a11y:** 41,649 tokens volatile. A cold-cache event here is expensive; `idle-tax/` will fire a hard warning.
+- **Optimized (C):** 500 tokens volatile. Essentially nothing to re-cache; the skill body lives in a subagent context whose cache is its own concern and which closes after the skill finishes.
 
 The subagent pattern is therefore the most cache-resilient — and combines best with `idle-tax/` warnings, because a cold-cache event in the parent session no longer forces expensive skill-body re-caching.

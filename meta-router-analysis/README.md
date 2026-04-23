@@ -38,12 +38,18 @@ python3 benchmark/count_tokens.py <path/to/SKILL.md> [...]
 
 ## Headline numbers
 
-From `benchmark/results.md`:
+From `benchmark/results.md` — comparing three scenarios per bundle:
 
-| Bundle | Preload turn-1 | Router+subagent turn-1 | Reduction |
-|---|---:|---:|---:|
-| drupal-meta-skills | 8,807 | 1,157 | 87% |
-| a11y-meta-skills | 41,649 | 903 | 98% |
+- **F. Flattened (straw-man)** — every SKILL.md body and every agent body preloaded.
+- **A. As-implemented** — what the bundle does today.
+- **C. Optimized (router-v2)** — SKILL.md files reduced to frontmatter stubs; router + subagent.
+
+| Bundle | F (straw-man) | A (today) | C (optimized) | A vs F | C vs A |
+|---|---:|---:|---:|---:|---:|
+| drupal-meta-skills | 54,630 | 9,307 | 1,657 | saves 83% | saves 82% more |
+| a11y-meta-skills | 60,175 | 42,149 | 1,403 | saves 30% | saves 97% more |
+
+drupal-meta-skills already does most of the work — its SKILL.md files act as routers that delegate to agent bodies via subagent. a11y-meta-skills keeps its agents on disk but duplicates the full protocol inline in SKILL.md, so most of the weight still preloads. Router-v2 closes the gap.
 
 Thresholds used:
 
