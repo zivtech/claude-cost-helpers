@@ -1,0 +1,390 @@
+From 34375a9807a448ffff39dff97ca46dd668e29c12 Mon Sep 17 00:00:00 2001
+From: Zivtech Router v2 <noreply@zivtech.com>
+Date: Fri, 24 Apr 2026 16:01:08 +0000
+Subject: [PATCH] =?UTF-8?q?refactor:=20trim=20SKILL.md=20files=20=E2=80=94?=
+ =?UTF-8?q?=20move=20implementation=20details=20to=20agents?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Removes sections from each SKILL.md that duplicate work the agent already
+does. SKILL.md keeps the router-level content (Overview, routing table,
+Use_When, Do_Not_Use_When, high-level Steps); agents keep the execution
+contract, tool choices, checklists, and reference lists.
+
+Removed from SKILL.md (present in corresponding agent):
+- Companion_Skills          — long list of related skills, noise at router
+- Tool_Usage                — implementation detail
+- References                — agent loads these on demand
+- Final_Checklist           — post-planning validation belongs in agent
+- Perspectives              (drupal-critic) — review lens, agent-level
+- Drupal-Specific Must-Check List (drupal-critic)
+- Skill Loading Rules       (drupal-critic)
+- Severity Calibration      (drupal-critic)
+- Stop Conditions           (drupal-critic)
+- Required Output Contract  (drupal-critic)
+- Input Modes               (drupal-config-executor)
+- Resolution Paths          (drupal-config-executor)
+- What You Get              (drupal-config-executor)
+- meta-router Registry Note (drupal-config-executor)
+
+Measurement (char/4 estimator):
+- SKILL.md total: 8,807 -> 5,891 tokens (-33%)
+- Turn-10 parent context:  9,307 -> 6,391 tokens (-31%)
+
+The bundle already achieves 83% parent-context savings vs the flattened
+straw-man via its existing SKILL.md-routes-to-agent pattern. This patch
+closes another ~31% by removing content from SKILL.md that belongs in
+the agent anyway.
+
+No Agent files changed — the routing contract is unchanged, and clients
+calling `Agent(subagent_type=...)` continue to get the full protocol.
+
+Full analysis: https://github.com/zivtech/claude-cost-helpers
+See meta-router-analysis/benchmark/results.md and
+meta-router-analysis/improvements/router-v2-spec.md.
+---
+ .../skills/drupal-config-executor/SKILL.md    | 45 --------------
+ .claude/skills/drupal-critic/SKILL.md         | 59 -------------------
+ .claude/skills/drupal-planner.canvas/SKILL.md | 14 -----
+ .../drupal-planner.content-model/SKILL.md     | 13 ----
+ .claude/skills/drupal-planner.search/SKILL.md | 14 -----
+ .../skills/drupal-planner.taxonomy/SKILL.md   | 14 -----
+ .claude/skills/drupal-planner.theme/SKILL.md  | 13 ----
+ .claude/skills/drupal-planner/SKILL.md        | 53 -----------------
+ 8 files changed, 225 deletions(-)
+
+diff --git a/.claude/skills/drupal-config-executor/SKILL.md b/.claude/skills/drupal-config-executor/SKILL.md
+index 30091de..3225db0 100644
+--- a/.claude/skills/drupal-config-executor/SKILL.md
++++ b/.claude/skills/drupal-config-executor/SKILL.md
+@@ -39,48 +39,3 @@ description: >
+ 
+ ---
+ 
+-## Resolution Paths
+-
+-| Situation | Route |
+-|-----------|-------|
+-| Have a content-model plan, need config YAML | This skill — generates all config files |
+-| Need to design the content model first | Use `drupal-planner.content-model`, then come back |
+-| Have config YAML, need quality review | Use `content-model-critic` + `drupal-critic` |
+-| Need custom module code, not config | Use OMC executor agent or manual implementation |
+-| Need to migrate existing content to new model | Use `drupal-migration-planner` for the plan |
+-
+----
+-
+-## What You Get
+-
+-- **Config YAML files** for all entity types, fields, form displays, view displays, taxonomy vocabularies, Search API indexes
+-- **Dependency-ordered manifest** listing all generated files and their import order
+-- **Deviation log** documenting any places the generated config differs from the planner spec
+-- **Critic handoff command** — ready to run `/content-model-critic` + `/drupal-critic` on the output
+-
+----
+-
+-## Input Modes
+-
+-### Mode 1: Planner Spec (Preferred)
+-Provide the output from `drupal-planner.content-model`, `.taxonomy`, or `.search`. The executor parses the structured tables (Entity Type Definitions, Field Architecture, Taxonomy Integration) and generates config YAML matching the spec exactly.
+-
+-### Mode 2: Direct Request (Simple Cases)
+-Describe the content type directly: "Create an Event content type with title, date range, location reference, body, and image fields." The executor generates config using sensible Drupal defaults. For complex content models with many entity types, redirects to `drupal-planner.content-model`.
+-
+----
+-
+-## Companion Skills
+-
+-- **drupal-planner.content-model** (upstream): Designs the content model that this executor implements
+-- **drupal-planner.taxonomy** (upstream): Designs taxonomy architecture
+-- **drupal-planner.search** (upstream): Designs search configuration
+-- **content-model-critic** (downstream): Reviews generated config for entity proliferation, field duplication, composition patterns
+-- **drupal-critic** (downstream): Reviews generated config for Drupal best practices
+-
+----
+-
+-## meta-router Registry Note
+-
+-Listed under the **Executors** table.
+-Trigger signals: `generate drupal config, scaffold content type, create drupal fields, generate config yaml, drupal config from plan`
+diff --git a/.claude/skills/drupal-critic/SKILL.md b/.claude/skills/drupal-critic/SKILL.md
+index 45288e6..e03fb3d 100644
+--- a/.claude/skills/drupal-critic/SKILL.md
++++ b/.claude/skills/drupal-critic/SKILL.md
+@@ -65,62 +65,3 @@ Rules:
+ 9. Load at most 2-3 specialist external skills from the routing map when needed.
+ 10. Return structured verdict with evidence.
+ 
+-## Required Output Contract
+-Use this exact top-level structure:
+-- `VERDICT: [REJECT | REVISE | ACCEPT-WITH-RESERVATIONS | ACCEPT]`
+-- `Overall Assessment`
+-- `Pre-commitment Predictions`
+-- `Critical Findings`
+-- `Major Findings`
+-- `Minor Findings`
+-- `What's Missing`
+-- `Ambiguity Risks` (plan reviews only)
+-- `Multi-Perspective Notes`
+-- `Verdict Justification`
+-- `Open Questions (unscored)`
+-
+-Rules:
+-- CRITICAL and MAJOR findings must include concrete evidence (`file:line` or backtick-quoted artifact reference).
+-- If a section has no items, write `None.`
+-- Keep speculative points in `Open Questions` only.
+-- In `Verdict Justification`, state whether escalation to adversarial review happened and why.
+-
+-## Perspectives
+-Always run:
+-- Security
+-- New-hire
+-- Ops
+-
+-Context-driven (activate when triggered):
+-- Open Source Contributor
+-- Site Builder (Drupal admin UI)
+-- Content Editor/Marketer
+-
+-Perspective notes must appear in `Multi-Perspective Notes`.
+-
+-## Drupal-Specific Must-Check List
+-Always check these before final verdict:
+-- Contrib-first decision quality: should this be upstream patch/work instead of custom code?
+-- Access and trust boundaries: routes, entity queries, permissions, token checks — but always verify the exploit path is reachable by non-admins. Admins already own the site; only flag admin-surface issues if they enable privilege escalation, CSRF, or stored XSS affecting non-admin users.
+-- Render safety: `#markup`, Twig raw output, sanitization path — focus on anonymous and authenticated non-admin paths. Admin-only XSS is low-priority unless it persists to non-admin contexts.
+-- Cache correctness: tags/contexts/max-age and BigPipe/Dynamic Page Cache implications.
+-- Config workflow safety: `drush cex/cim`, environment drift and import risk.
+-- Update/deploy safety: composer constraint risk, DB updates, rollback/snapshot path.
+-- Migration safety: source assumptions, idempotency, replay/rollback behavior.
+-- Operability: logging, failure handling, and blast radius.
+-
+-## Skill Loading Rules
+-- Match the review context against each skill's JTBD statement in the routing map before selecting. Load the skill whose situation clause most closely matches the artifact under review.
+-- Default: one core review skill + one specialist skill.
+-- Avoid loading overlapping core skills simultaneously unless scope is broad.
+-- Prefer higher-priority, active entries in external manifest.
+-
+-## Severity Calibration
+-- CRITICAL: exploit/security bypass/data-loss/deploy-blocking flaws.
+-- MAJOR: likely regressions or significant rework required.
+-- MINOR: non-blocking correctness/maintainability issues.
+-- Do not inflate severity for style-only points.
+-
+-## Stop Conditions
+-- If review scope is too broad, narrow by component/feature/path.
+-- If evidence cannot be found, move concern to `Open Questions`.
+diff --git a/.claude/skills/drupal-planner.canvas/SKILL.md b/.claude/skills/drupal-planner.canvas/SKILL.md
+index 8d70f63..6fc1180 100644
+--- a/.claude/skills/drupal-planner.canvas/SKILL.md
++++ b/.claude/skills/drupal-planner.canvas/SKILL.md
+@@ -29,14 +29,6 @@ This is a focused sub-planner of `/drupal-planner` and the companion planner to
+ - User is focused on content model or entity architecture — use `/drupal-planner.content-model`
+ - User is writing Canvas component code — use their development workflow
+ 
+-## Companion_Skills
+-
+-- `drupal-critic`: Reviews Canvas components using 7 Canvas-specific external skills (component-definition, component-metadata, component-utils, data-fetching, styling-conventions, component-composability, component-upload)
+-- `drupal-planner`: Full Drupal implementation planning (routes here for Canvas phase)
+-- `drupal-planner.theme`: Theme architecture (for SDC and traditional theming alongside Canvas)
+-- `drupal-planner.content-model`: Content model design (Canvas components render content model entities)
+-- `a11y-planner`: Accessibility design (for deep-dive on ARIA patterns within Canvas components)
+-
+ ## Steps
+ 
+ 1. **Identify scope**: What Canvas component architecture is being designed?
+@@ -45,9 +37,3 @@ This is a focused sub-planner of `/drupal-planner` and the companion planner to
+    - `Agent(subagent_type="drupal-planner", model="opus", prompt=<canvas_planning_prompt>)`
+ 4. **Return the plan**: Present Canvas component architecture specification
+ 
+-## Tool_Usage
+-
+-- Use Read to examine existing Canvas component files, component.yml schemas, package.json
+-- Use Grep to find component definitions, prop types, data fetching patterns, slot usage
+-- Use Bash to check Drupal CMS version, installed Canvas modules, component registry
+-- Write the plan to `docs/plans/`
+diff --git a/.claude/skills/drupal-planner.content-model/SKILL.md b/.claude/skills/drupal-planner.content-model/SKILL.md
+index 81dcd30..255e2e9 100644
+--- a/.claude/skills/drupal-planner.content-model/SKILL.md
++++ b/.claude/skills/drupal-planner.content-model/SKILL.md
+@@ -27,13 +27,6 @@ This is a focused sub-planner of `/drupal-planner`. Use it when the planning sco
+ - User is focused on taxonomy/classification — use `/drupal-planner.taxonomy`
+ - User is focused on search/discovery — use `/drupal-planner.search`
+ 
+-## Companion_Skills
+-
+-- `drupal-planner`: Full Drupal implementation planning (routes here for content model phase)
+-- `content-model-critic`: Review the content model after design
+-- `drupal-critic`: Review the implementation after coding
+-- `drupal-planner.taxonomy`: Taxonomy design (often paired with content model work)
+-
+ ## Steps
+ 
+ 1. **Identify scope**: What content model is being designed or redesigned?
+@@ -42,9 +35,3 @@ This is a focused sub-planner of `/drupal-planner`. Use it when the planning sco
+    - `Agent(subagent_type="drupal-planner", model="opus", prompt=<content_model_planning_prompt>)`
+ 4. **Return the plan**: Present content model specification
+ 
+-## Tool_Usage
+-
+-- Use Read to examine existing content types, field configs, paragraph types
+-- Use Grep to find entity type definitions, field usage patterns, bundle configurations
+-- Use Bash to check composer.json for Paragraphs, Layout Builder, ECK modules
+-- Write the plan to `docs/plans/`
+diff --git a/.claude/skills/drupal-planner.search/SKILL.md b/.claude/skills/drupal-planner.search/SKILL.md
+index 1989f92..c63a72e 100644
+--- a/.claude/skills/drupal-planner.search/SKILL.md
++++ b/.claude/skills/drupal-planner.search/SKILL.md
+@@ -27,14 +27,6 @@ This is a focused sub-planner of `/drupal-planner`. Use it when the planning sco
+ - User is focused on taxonomy design — use `/drupal-planner.taxonomy`
+ - User is focused on content model — use `/drupal-planner.content-model`
+ 
+-## Companion_Skills
+-
+-- `drupal-planner`: Full Drupal implementation planning
+-- `search-discovery-critic`: Review the search architecture after design
+-- `drupal-critic`: Review the implementation after coding
+-- `drupal-planner.taxonomy`: Taxonomy design (taxonomies power faceted search)
+-- `drupal-planner.content-model`: Content model design (determines what's indexed)
+-
+ ## Steps
+ 
+ 1. **Identify scope**: What search/discovery architecture is being designed?
+@@ -43,9 +35,3 @@ This is a focused sub-planner of `/drupal-planner`. Use it when the planning sco
+    - `Agent(subagent_type="drupal-planner", model="opus", prompt=<search_planning_prompt>)`
+ 4. **Return the plan**: Present search architecture specification
+ 
+-## Tool_Usage
+-
+-- Use Read to examine existing Search API config, Views search pages, Facets configuration
+-- Use Grep to find search_api index definitions, facet configurations, Views display settings
+-- Use Bash to check composer.json for search_api_solr, elasticsearch_connector, facets modules
+-- Write the plan to `docs/plans/`
+diff --git a/.claude/skills/drupal-planner.taxonomy/SKILL.md b/.claude/skills/drupal-planner.taxonomy/SKILL.md
+index f9e361a..b7d49a7 100644
+--- a/.claude/skills/drupal-planner.taxonomy/SKILL.md
++++ b/.claude/skills/drupal-planner.taxonomy/SKILL.md
+@@ -27,14 +27,6 @@ This is a focused sub-planner of `/drupal-planner`. Use it when the planning sco
+ - User is focused on content types/entity architecture — use `/drupal-planner.content-model`
+ - User is focused on search beyond taxonomy facets — use `/drupal-planner.search`
+ 
+-## Companion_Skills
+-
+-- `drupal-planner`: Full Drupal implementation planning
+-- `taxonomy-critic`: Review the taxonomy after design
+-- `drupal-critic`: Review the implementation after coding
+-- `drupal-planner.content-model`: Content model design (taxonomies attach to content types)
+-- `drupal-planner.search`: Search architecture (taxonomies power faceted search)
+-
+ ## Steps
+ 
+ 1. **Identify scope**: What taxonomy/classification is being designed?
+@@ -43,9 +35,3 @@ This is a focused sub-planner of `/drupal-planner`. Use it when the planning sco
+    - `Agent(subagent_type="drupal-planner", model="opus", prompt=<taxonomy_planning_prompt>)`
+ 4. **Return the plan**: Present taxonomy specification
+ 
+-## Tool_Usage
+-
+-- Use Read to examine existing vocabularies, term reference fields, Views configurations
+-- Use Grep to find taxonomy usage patterns, Views filter configurations, Pathauto patterns
+-- Use Bash to check composer.json for Facets, Pathauto, Taxonomy Manager modules
+-- Write the plan to `docs/plans/`
+diff --git a/.claude/skills/drupal-planner.theme/SKILL.md b/.claude/skills/drupal-planner.theme/SKILL.md
+index 7fc87fc..114930a 100644
+--- a/.claude/skills/drupal-planner.theme/SKILL.md
++++ b/.claude/skills/drupal-planner.theme/SKILL.md
+@@ -27,13 +27,6 @@ This is a focused sub-planner of `/drupal-planner` and the companion planner to
+ - User is focused on content model or entity architecture — use `/drupal-planner.content-model`
+ - User is writing CSS/Twig code — use their development workflow
+ 
+-## Companion_Skills
+-
+-- `drupal-theme-critic`: Review the theme after implementation (this planner designs for what the critic checks)
+-- `drupal-planner`: Full Drupal implementation planning (routes here for theme phase)
+-- `a11y-planner`: Accessibility design (for deep-dive on ARIA patterns, focus management)
+-- `drupal-critic`: Review the full implementation after coding
+-
+ ## Steps
+ 
+ 1. **Identify scope**: What theme architecture is being designed?
+@@ -42,9 +35,3 @@ This is a focused sub-planner of `/drupal-planner` and the companion planner to
+    - `Agent(subagent_type="drupal-planner", model="opus", prompt=<theme_planning_prompt>)`
+ 4. **Return the plan**: Present theme architecture specification
+ 
+-## Tool_Usage
+-
+-- Use Read to examine existing theme structure, .info.yml, .theme files, templates, CSS
+-- Use Grep to find preprocess functions, template files, CSS methodology patterns, library definitions
+-- Use Bash to check Drupal version, base theme, StarterKit usage
+-- Write the plan to `docs/plans/`
+diff --git a/.claude/skills/drupal-planner/SKILL.md b/.claude/skills/drupal-planner/SKILL.md
+index 5dc69b9..c591f1e 100644
+--- a/.claude/skills/drupal-planner/SKILL.md
++++ b/.claude/skills/drupal-planner/SKILL.md
+@@ -62,30 +62,6 @@ Use Drupal Planner when you need to:
+ - User wants general Drupal knowledge (what's an entity? how does the cache API work?) — answer directly
+ - User is just asking a question, not designing something — answer directly instead
+ 
+-## Companion_Skills
+-
+-**Sub-planners (for focused subsystem planning):**
+-- `drupal-planner.content-model`: Deep content model architecture
+-- `drupal-planner.taxonomy`: Taxonomy and classification architecture
+-- `drupal-planner.theme`: Theme and frontend architecture
+-- `drupal-planner.canvas`: Canvas Code Component architecture
+-- `drupal-planner.search`: Search and discovery architecture
+-
+-**Design phase (always use if installed):**
+-- `brainstorming` (obra/superpowers): Explore multiple Drupal architectures before committing.
+-- `writing-plans` (obra/superpowers): Convert the Drupal design into implementation tasks.
+-
+-**Code understanding:**
+-- `code-archaeology` (flonat/claude-research): Understand existing Drupal modules before planning modifications.
+-
+-**Implementation:**
+-- `test-driven-development` (obra/superpowers): TDD for Drupal with PHPUnit and Kernel tests.
+-- `executing-plans` (obra/superpowers): Batch execution with checkpoints.
+-
+-**Verification:**
+-- `drupal-critic` (drupal-critic): Harsh code review at checkpoints.
+-- `drupal-coding-standards` (zivtech-claude-skills): Drupal coding standards compliance.
+-
+ ## Steps
+ 
+ 1. **Identify the scope**: Determine what Drupal implementation needs planning. If no arguments provided, ask the user what they want to plan.
+@@ -106,32 +82,3 @@ Use Drupal Planner when you need to:
+ 
+ 6. **Return the plan**: Present the plan document to the user and offer execution options.
+ 
+-## Tool_Usage
+-
+-- Use the Agent tool to delegate planning to a subagent with the full protocol
+-- Use Read to examine existing modules, entity types, hooks, and services if modifying existing code
+-- Use Grep to find patterns: entity types, bundle definitions, hook implementations, service definitions
+-- Use Bash to analyze composer.json for Drupal version detection, module dependencies
+-- Write the plan document to `docs/plans/` in the project
+-
+-## References
+-
+-- [Contrib Evaluation Rubric](references/contrib-evaluation-rubric.md) — Decision framework for contrib vs custom module decisions
+-- [Drupal Planning Rubric](references/drupal-planning-rubric.md) — Quality checklist for planning output
+-- [Sub-Planner Routing Map](references/sub-planner-routing-map.md) — Detailed routing logic for sub-planner selection
+-
+-## Final_Checklist
+-
+-- [ ] Did I understand the feature scope and risk level?
+-- [ ] Did I route to the right planner (main vs sub-planner)?
+-- [ ] Did I analyze existing architecture (if modifying code)?
+-- [ ] Did I detect the Drupal version (7, 10, 11, CMS)?
+-- [ ] Does every entity type have a one-sentence purpose and relationships documented?
+-- [ ] Does every custom module justify why a contrib module doesn't solve it?
+-- [ ] Does the permission model exist with role→permission→rationale mapping?
+-- [ ] Does every config item have a classification (simple config vs config entity vs state)?
+-- [ ] Does the cache strategy specify tags, contexts, and max-age for each cacheable item?
+-- [ ] Does the migration plan (if needed) have idempotency and rollback strategy?
+-- [ ] Did I plan the theme/render (templates, preprocess, accessibility)?
+-- [ ] Did I break down implementation into TDD tasks with review checkpoints?
+-- [ ] Did I identify drupal-critic review checkpoints at appropriate stages?
+-- 
+2.43.0
+
