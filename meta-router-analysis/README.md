@@ -46,10 +46,13 @@ From `benchmark/results.md` — comparing three scenarios per bundle:
 
 | Bundle | F (straw-man) | A (today) | C (optimized) | A vs F | C vs A |
 |---|---:|---:|---:|---:|---:|
-| drupal-meta-skills | 54,630 | 9,307 | 1,657 | saves 83% | saves 82% more |
-| a11y-meta-skills | 60,175 | 42,149 | 1,403 | saves 30% | saves 97% more |
+| drupal-meta-skills | 54,630 | 9,307 | 1,657 (simulated) | saves 83% | saves 82% more |
+| a11y-meta-skills (upstream) | 60,175 | 42,149 | 1,403 (simulated) | saves 30% | saves 97% more |
+| **a11y-meta-skills (refactored, empirical)** | **29,357** | **1,465** | 1,410 (simulated) | **saves 95%** | negligible |
 
-drupal-meta-skills already does most of the work — its SKILL.md files act as routers that delegate to agent bodies via subagent. a11y-meta-skills keeps its agents on disk but duplicates the full protocol inline in SKILL.md, so most of the weight still preloads. Router-v2 closes the gap.
+drupal-meta-skills already does most of the work — its SKILL.md files act as routers that delegate to agent bodies via subagent. a11y-meta-skills keeps its agents on disk but duplicates the full protocol inline in SKILL.md, so most of the weight still preloads.
+
+A concrete router-v2 port of the a11y bundle lives at [`refactored/a11y-meta-skills/`](refactored/a11y-meta-skills/). Its empirical turn-10 parent context is **1,465 tokens** — a 96.5% reduction against the upstream bundle's 42,149, and within 4% of the simulated C-scenario prediction.
 
 Thresholds used:
 

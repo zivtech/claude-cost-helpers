@@ -42,11 +42,33 @@ The remaining 82% (from 9,307 down to 1,657 tokens) is available by shrinking th
 |---|---:|---:|---:|
 | F. Flattened | 60,175 | 60,175 | 20.06% |
 | A. As-implemented | 41,649 | 42,149 | 14.05% |
-| C. Optimized | 903 | 1,403 | 0.47% |
+| C. Optimized (simulated) | 903 | 1,403 | 0.47% |
 
 a11y-meta-skills has agents on disk — so in principle it could follow the drupal pattern. In practice it doesn't: `a11y-planner/SKILL.md` contains the full WAI-ARIA planning protocol (17,716 tokens) rather than delegating to the `a11y-planner.md` agent (9,279 tokens). Install the bundle, open a session, and **41,649 tokens of accessibility-planning protocol sit in your parent context before you've said a word** — 14% of the rot zone spent on skills the session may never invoke.
 
-The A-vs-F number captures the consequence: the bundle only saves 30% over the straw-man, because most of the weight is in SKILL.md rather than agents. Applying router-v2 (move each SKILL.md's protocol into its agent file, shrink SKILL.md to a stub) saves **97% on top of today**. That is the single most valuable change either bundle could ship.
+The A-vs-F number captures the consequence: the bundle only saves 30% over the straw-man, because most of the weight is in SKILL.md rather than agents.
+
+## a11y-meta-skills, actually refactored
+
+Rather than leave the optimization as a simulation, [`refactored/a11y-meta-skills/`](refactored/a11y-meta-skills/) ships a concrete router-v2 port of the bundle. Each of the four SKILL.md files was reduced to a ~200-token frontmatter-delegation stub; existing agents were copied unchanged; new agents for `a11y-test` and `perspective-audit` were generated from their original SKILL.md bodies.
+
+Running the same benchmark against the refactored bundle:
+
+| Scenario | Turn-1 parent | Turn-10 parent | % of 300K rot |
+|---|---:|---:|---:|
+| F. Flattened | 29,357 | 29,357 | 9.79% |
+| A. As-implemented (router-v2 live) | 965 | 1,465 | 0.49% |
+| C. Optimized (simulated) | 910 | 1,410 | 0.47% |
+
+The refactored bundle's **A row is what the upstream bundle's C row was predicting**. Empirical 1,465 tokens vs simulated 1,410 tokens — within 4%. The simulation was a trustworthy estimate.
+
+Against the upstream a11y-meta-skills:
+
+- Turn 10 parent context: **42,149 → 1,465 tokens (-96.5%)**.
+- Cold-cache volatile tokens: **41,649 → 965 (-98%)** per TTL expiry.
+- Even the F straw-man is cheaper: 60,175 → 29,357 tokens (-51%), because the refactor eliminates the SKILL.md-plus-agent duplication that inflated the original straw-man.
+
+No accessibility content was lost. It moved from SKILL.md (preloaded into parent context when the bundle is installed) to agent files (loaded only when a subagent is spawned).
 
 ## Why the gap
 

@@ -60,6 +60,11 @@ REPOS = {
     "drupal-meta-skills": "https://github.com/zivtech/drupal-meta-skills.git",
     "a11y-meta-skills": "https://github.com/zivtech/a11y-meta-skills.git",
 }
+LOCAL_BUNDLES = {
+    # Demo refactor living inside this repo; measured as scenario C_real so
+    # the optimized scenario isn't purely simulated.
+    "a11y-meta-skills (refactored)": Path(__file__).resolve().parent.parent / "refactored" / "a11y-meta-skills",
+}
 
 # Thresholds drawn from this repo's helpers.
 ROT_ZONE_TOKENS = 300_000           # just-one-more-turn/
@@ -251,6 +256,10 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv[1:])
 
     paths = ensure_cloned(args.cache_dir)
+    # Merge in any local bundles (e.g. the refactored a11y bundle in this repo).
+    for name, root in LOCAL_BUNDLES.items():
+        if root.is_dir():
+            paths[name] = root
     reports: list[BundleReport] = []
     for bundle, root in paths.items():
         skills = discover_skills(root)
