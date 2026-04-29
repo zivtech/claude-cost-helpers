@@ -182,7 +182,7 @@ The common thread: every helper makes an invisible cost visible at the moment it
 
 ## For organizations
 
-Individual developers can install these manually. For organizations with 20+ Claude Code users, [Joyus AI](https://github.com/joyus-ai) provides:
+Individual developers can install these manually. For organizations with 20+ Claude Code users, [Joyus AI](https://github.com/zivtech/joyus-ai) provides:
 
 - **Deployment** — push canonical hook configs to all org users
 - **Policy** — enforce which helpers are required ("idle-tax hook required for all users")
