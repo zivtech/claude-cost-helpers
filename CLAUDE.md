@@ -4,6 +4,19 @@
 
 Local Claude Code hooks and slash commands that make cost mechanics visible. Each helper corresponds to one post in the *Economics of Claude Code* blog series. No platform dependency — pure bash + python3.
 
+## Dead Output
+
+**What dead looks like in this repo:**
+- Hooks that fire warnings users have learned to ignore. If the idle-tax timer warns on every session start and users don't change their behavior, the warning is dead — it's noise, not signal. The threshold is wrong or the message doesn't connect cost to action.
+- Slash commands that save state nobody resumes from. If `/save-session` writes a handoff file that the next session's `/resume-session` doesn't actually load, the save was dead ritual — it felt productive but produced nothing usable.
+- Cost warnings that report numbers without context. "This session has used 150K tokens" means nothing to a user who doesn't know what 150K tokens costs or what the alternative would have cost. The warning needs to connect to a decision the user can make right now.
+- New helpers built to the checklist (hook, command, snippet, install, README, LICENSE) without testing whether they actually change user behavior. A perfectly packaged helper that doesn't make cost mechanics visible is dead tooling.
+
+Three rules:
+- **Name it when you see it.** If a hook, command, or helper is dead — running without changing behavior — say so. The whole point of this repo is to make invisible costs visible. If they stay invisible, the tool failed.
+- **Friction is the job.** If a new helper follows the pattern perfectly but doesn't address a real cost mechanic from the blog series, push back. If a warning threshold is set so conservatively it never fires, or so aggressively it always fires, flag it.
+- **Watch for rank erosion.** Blog post insight → hook implementation → user-facing message loses nuance at each step. If the warning message doesn't convey the insight from the blog post that motivated the helper, the message is too flat to drive behavior change.
+
 ## Repo structure
 
 ```
@@ -35,10 +48,18 @@ Local Claude Code hooks and slash commands that make cost mechanics visible. Eac
 │   ├── hooks/effort-pin-banner.sh  # SessionStart hook
 │   ├── commands/deep.md            # /deep slash command
 │   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
-└── auto-persist/                # continuous session state, zero Claude tokens
-    ├── hooks/stop-auto-persist.sh  # Stop hook
-    ├── commands/last-state.md      # /last-state slash command
+├── auto-persist/                # continuous session state, zero Claude tokens
+│   ├── hooks/stop-auto-persist.sh  # Stop hook
+│   ├── commands/last-state.md      # /last-state slash command
+│   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+├── delegation-cost/             # agent result size tracking
+│   ├── delegation-result-monitor.sh # PostToolUse hook (Agent)
+│   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+└── idle-autosave/               # automatic handoff notes on session idle
+    ├── hooks/stop-idle-autosave.sh    # Stop hook — arms detached watcher
+    ├── hooks/idle-autosave-worker.sh  # watcher: 4-min idle window, haiku handoff
     ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+    └── (no slash command on purpose — /resume-session is the consumer)
 ```
 
 ## Conventions

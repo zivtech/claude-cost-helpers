@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/idle-autosave/stop-idle-autosave.sh",
+            "timeout": 5,
+            "statusMessage": "Arming idle autosave..."
+          }
+        ]
+      }
+    ]
+  }
+}

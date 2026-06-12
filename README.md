@@ -25,6 +25,7 @@ This repository now includes a **limited Codex helper lane** under [codex-helper
 | [Delegation Cost](delegation-cost/) | Part 6: The delegation tax | `PostToolUse` on Agent — warns when agent results exceed token threshold | `/delegation-report` | **Built + tested** |
 | [Effort Control](effort-control/) | Part 1 addendum: 4.7's `xhigh` default | `SessionStart` — confirms `CLAUDE_CODE_EFFORT_LEVEL` pin is active | `/deep` | **Built + tested** |
 | [Auto-Persist](auto-persist/) | Part 1 addendum: Stop-hook session state | `Stop` — writes minimal environmental state after every turn | `/last-state` | **Built + tested** |
+| [Idle Autosave](idle-autosave/) | Follow-up post (in prep) | `Stop` — arms a detached watcher; after 4 min of quiet it writes a real handoff note via headless haiku (~$0.01) | *(none — `/resume-session` is the consumer)* | **Built + tested** |
 
 ## Install
 
@@ -153,6 +154,15 @@ If you install all helpers, here's the combined `hooks` block for `~/.claude/set
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/idle-autosave/stop-idle-autosave.sh",
+            "timeout": 5
+          }
+        ]
       }
     ]
   },
@@ -177,6 +187,7 @@ The helpers are independent — install any subset. But they're designed to laye
 - **Delegation Cost** is the mirror of subagent-isolation: delegation keeps files out of the parent (good), but agent results pile up in it (bad). This hook tracks that accumulation.
 - **Effort Control** pins `CLAUDE_CODE_EFFORT_LEVEL=high` so Opus 4.7 doesn't silently spend `xhigh` per turn
 - **Auto-Persist** writes environmental state after every turn via Stop hook — zero Claude tokens, always current. The automatic counterpart to idle-tax's manual `/save-session`
+- **Idle Autosave** closes idle-tax's loop. Idle-tax warns at *return* time — after the cache already died. Idle-autosave acts at *idle* time: 4 minutes of quiet (inside the 5-minute TTL) and a detached watcher writes a real handoff via headless haiku (~$0.01), so "start fresh" is always a safe answer. The handoff lands in the same `*-session.md` location idle-tax surfaces and `/resume-session` loads
 
 The common thread: every helper makes an invisible cost visible at the moment it happens, so you have a real choice.
 
