@@ -18,6 +18,9 @@
 #     so the idle timer always measures quiet since the LAST turn
 #   - Recursion-guarded: the worker's headless claude call fires this hook
 #     too; CLAUDE_IDLE_AUTOSAVE_CHILD short-circuits it
+#   - Interactive-only: headless / eval child sessions (ephemeral scratch
+#     cwd, CLAUDE_IDLE_AUTOSAVE_DISABLE set, or a non-interactive
+#     entrypoint) are skipped — no watcher, no handoff, no notification
 #
 # Part of: claude-cost-helpers / idle-autosave
 
@@ -51,6 +54,32 @@ CWD=$(echo "$parsed" | sed -n '3p')
 if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ] || [ "$SESSION_ID" = "unknown" ]; then
     exit 0
 fi
+
+# --- Skip headless / ephemeral sessions ----------------------------------
+# Idle-autosave is for interactive sessions you walk away from. Workflow and
+# eval runners spawn `claude` (often headless) with a scratch cwd; those
+# sessions end on their own and must not leave handoff notes or fire
+# notifications. Any one of three signals skips arming entirely:
+#   1. CLAUDE_IDLE_AUTOSAVE_DISABLE — explicit opt-out a spawner can export
+#      before launching child `claude` runs (the child's hooks inherit it).
+#   2. Ephemeral cwd/transcript — under /tmp, /private/tmp, or a */scratchpad/
+#      dir (where harness/eval child sessions run). cwd is the reliable tell;
+#      env vars are inherited by every subprocess and can't distinguish
+#      interactive from headless on their own.
+#   3. Non-interactive entrypoint — CLAUDE_CODE_ENTRYPOINT is "cli" for the
+#      TUI; print/sdk/cron/action/mcp entrypoints are programmatic.
+if [ -n "$CLAUDE_IDLE_AUTOSAVE_DISABLE" ]; then
+    exit 0
+fi
+case "$CWD" in
+    /tmp/*|/private/tmp/*|*/scratchpad/*|*/scratchpad) exit 0 ;;
+esac
+case "$TRANSCRIPT" in
+    *-private-tmp-claude-*|*scratchpad*) exit 0 ;;
+esac
+case "$CLAUDE_CODE_ENTRYPOINT" in
+    *headless*|*print*|*sdk*|*api*|*cron*|*action*|*mcp*) exit 0 ;;
+esac
 
 STATE_DIR="${HOME}/.claude/.session-state"
 mkdir -p "$STATE_DIR" 2>/dev/null

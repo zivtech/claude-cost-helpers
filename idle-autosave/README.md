@@ -20,10 +20,11 @@ the most recent `*-session.md` automatically).
 
 ## How it works
 
-1. **`stop-idle-autosave.sh`** (Stop hook) fires after every Claude turn.
-   It kills the previous watcher for the session and spawns a fresh
-   detached one — so the timer always measures quiet since the *last*
-   turn. Returns in milliseconds; all waiting happens out of process.
+1. **`stop-idle-autosave.sh`** (Stop hook) fires after every Claude turn of
+   an interactive session. It kills the previous watcher for the session and
+   spawns a fresh detached one — so the timer always measures quiet since the
+   *last* turn. Returns in milliseconds; all waiting happens out of process.
+   Headless and eval child sessions are skipped here (see Edge cases).
 2. **`idle-autosave-worker.sh`** polls the transcript mtime. Any activity →
    it stands down silently. After 240s of quiet it extracts the
    conversation tail from the transcript JSONL (capped at 24K chars) and
@@ -79,6 +80,7 @@ start a new session to pick up the hooks.
 | `IDLE_AUTOSAVE_MAX_CHARS` | `24000` | Cap on extracted transcript text |
 | `IDLE_AUTOSAVE_NOTIFY` | `1` | macOS notification on save (0 to disable) |
 | `IDLE_AUTOSAVE_CLAUDE_BIN` | auto | Override path to the claude CLI |
+| `CLAUDE_IDLE_AUTOSAVE_DISABLE` | unset | Set to `1` in any spawner/automation to skip idle-autosave for the sessions it launches (child `claude` runs inherit it) |
 
 ## Deliberate omissions
 
@@ -107,6 +109,13 @@ start a new session to pick up the hooks.
   the watcher still fires its one handoff. It no longer leaks a `.pid` (the
   worker self-cleans on exit) and the notification is labelled with the
   session id.
+- **Headless & eval child sessions**: a workflow or eval that spawns `claude`
+  with a scratch cwd (under `/tmp`, `/private/tmp`, or a `*/scratchpad/*`
+  dir), or that exports `CLAUDE_IDLE_AUTOSAVE_DISABLE=1`, or runs under a
+  non-interactive `CLAUDE_CODE_ENTRYPOINT` (print/sdk/cron/action/mcp), is
+  skipped at arm time — no watcher, no handoff, no notification. cwd is the
+  reliable signal; env vars are inherited by every subprocess and can't tell
+  interactive from headless on their own.
 - **Repeated idles in one session**: same-day handoffs for one session
   overwrite the same file — freshest state wins, no file spam.
 
