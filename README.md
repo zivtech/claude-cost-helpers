@@ -25,7 +25,7 @@ This repository now includes a **limited Codex helper lane** under [codex-helper
 | [Delegation Cost](delegation-cost/) | Part 6: The delegation tax | `PostToolUse` on Agent — warns when agent results exceed token threshold | `/delegation-report` | **Built + tested** |
 | [Effort Control](effort-control/) | Part 1 addendum: 4.7's `xhigh` default | `SessionStart` — confirms `CLAUDE_CODE_EFFORT_LEVEL` pin is active | `/deep` | **Built + tested** |
 | [Auto-Persist](auto-persist/) | Part 1 addendum: Stop-hook session state | `Stop` — writes minimal environmental state after every turn | `/last-state` | **Built + tested** |
-| [Idle Autosave](idle-autosave/) | Follow-up post (in prep) | `Stop` — arms a detached watcher; after 4 min of quiet it writes a real handoff note via headless haiku (~$0.01) | *(none — `/resume-session` is the consumer)* | **Built + tested** |
+| [Idle Autosave](idle-autosave/) | Follow-up post (in prep) | `Stop` — arms a detached watcher; after 4 min of quiet it writes a real handoff note via headless haiku (~$0.01). `SessionEnd` — cancels the watcher and cleans state when a session ends | *(none — `/resume-session` is the consumer)* | **Built + tested** |
 
 ## Install
 
@@ -160,6 +160,17 @@ If you install all helpers, here's the combined `hooks` block for `~/.claude/set
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/cost-helpers/idle-autosave/stop-idle-autosave.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/idle-autosave/sessionend-idle-autosave.sh",
             "timeout": 5
           }
         ]

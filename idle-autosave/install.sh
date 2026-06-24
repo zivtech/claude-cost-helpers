@@ -9,7 +9,7 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 
 mkdir -p "$DEST"
 
-for f in stop-idle-autosave.sh idle-autosave-worker.sh; do
+for f in stop-idle-autosave.sh idle-autosave-worker.sh sessionend-idle-autosave.sh; do
     if [ -f "$DEST/$f" ]; then
         cp "$DEST/$f" "$DEST/$f.bak.$STAMP"
         echo "Backed up existing $f -> $f.bak.$STAMP"
@@ -20,6 +20,6 @@ for f in stop-idle-autosave.sh idle-autosave-worker.sh; do
 done
 
 echo
-echo "Now merge this into ~/.claude/settings.json (append to the existing hooks.Stop array):"
+echo "Now merge this into ~/.claude/settings.json (the hooks.Stop and hooks.SessionEnd entries):"
 echo
 cat "$SRC_DIR/settings-snippet.json"

@@ -56,8 +56,9 @@ Three rules:
 │   ├── delegation-result-monitor.sh # PostToolUse hook (Agent)
 │   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
 └── idle-autosave/               # automatic handoff notes on session idle
-    ├── hooks/stop-idle-autosave.sh    # Stop hook — arms detached watcher
-    ├── hooks/idle-autosave-worker.sh  # watcher: 4-min idle window, haiku handoff
+    ├── hooks/stop-idle-autosave.sh        # Stop hook — arms detached watcher
+    ├── hooks/idle-autosave-worker.sh      # watcher: 4-min idle window, haiku handoff
+    ├── hooks/sessionend-idle-autosave.sh  # SessionEnd hook — cancels watcher + cleans state
     ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
     └── (no slash command on purpose — /resume-session is the consumer)
 ```
@@ -95,6 +96,7 @@ Follow the pattern in `idle-tax/`. Checklist:
 | `PreCompact` | `session_id`, `trigger` ("auto" or "manual") |
 | `SessionStart` | (env vars injected from settings.json `env` block) |
 | `Stop` | `session_id`, `cwd`, `transcript_path` |
+| `SessionEnd` | `session_id`, `cwd`, `reason` |
 
 All hooks use `session_id` (snake_case). Use dual fallback `d.get('sessionId', d.get('session_id', 'unknown'))` for safety. PostToolUse tool response field is `tool_response` — use fallback chain: `tool_response` → `tool_result` → `tool_output`.
 

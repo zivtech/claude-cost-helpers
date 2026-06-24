@@ -39,10 +39,16 @@ NOTIFY="${IDLE_AUTOSAVE_NOTIFY:-1}"
 STATE_DIR="${HOME}/.claude/.session-state"
 SESSIONS_DIR="${HOME}/.claude/sessions"
 MARKER="${STATE_DIR}/idle-autosave-${SESSION_ID}.last"
+PID_FILE="${STATE_DIR}/idle-autosave-${SESSION_ID}.pid"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [${SESSION_ID:0:8}] $*"; }
 
 [ -n "$SESSION_ID" ] && [ -f "$TRANSCRIPT" ] || exit 0
+
+# Self-clean our PID file on exit (covers hard kills where SessionEnd never
+# fires, so .pid files stop accumulating). Only remove it if it still points
+# at us — a later Stop may have re-armed a new watcher and overwritten it.
+trap '[ "$(cat "$PID_FILE" 2>/dev/null)" = "$$" ] && rm -f "$PID_FILE" 2>/dev/null' EXIT
 
 mtime() { stat -f %m "$TRANSCRIPT" 2>/dev/null || stat -c %Y "$TRANSCRIPT" 2>/dev/null; }
 
@@ -183,7 +189,16 @@ echo "${START_MTIME}:${SIZE}" > "$MARKER"
 log "handoff written: $OUT $([ -n "$BODY" ] && echo '(haiku)' || echo '(fallback)')"
 
 if [ "$NOTIFY" = "1" ] && command -v osascript >/dev/null 2>&1; then
-    osascript -e 'display notification "Handoff saved — starting fresh is free now" with title "Claude idle-autosave"' >/dev/null 2>&1
+    # Pass dynamic text as argv (not interpolated into AppleScript) so a cwd
+    # with spaces/quotes can't break or inject. The subtitle disambiguates
+    # bursts: N ended sessions each fire their own identifiable banner instead
+    # of an anonymous, repeated-looking nag.
+    osascript \
+        -e 'on run argv' \
+        -e 'display notification (item 1 of argv) with title "Claude idle-autosave" subtitle (item 2 of argv)' \
+        -e 'end run' \
+        "Handoff saved for $(basename "$CWD" 2>/dev/null) — starting fresh is free" \
+        "session ${SESSION_ID:0:8} · $(date '+%H:%M:%S')" >/dev/null 2>&1
 fi
 
 exit 0

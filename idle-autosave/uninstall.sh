@@ -14,4 +14,4 @@ rm -f "$STATE_DIR"/idle-autosave-*.pid "$STATE_DIR"/idle-autosave-*.last
 echo "Removed $DEST and per-session idle-autosave state."
 echo "Saved handoff notes in ~/.claude/sessions/ are kept."
 echo
-echo "Remember to remove the idle-autosave entry from hooks.Stop in ~/.claude/settings.json."
+echo "Remember to remove the idle-autosave entries from hooks.Stop and hooks.SessionEnd in ~/.claude/settings.json."
