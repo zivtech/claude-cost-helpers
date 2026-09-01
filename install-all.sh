@@ -15,7 +15,7 @@ echo ""
 
 FAILED=()
 
-for helper in idle-tax just-one-more-turn subagent-isolation compact-gamble watching-cost delegation-cost effort-control auto-persist; do
+for helper in idle-tax just-one-more-turn subagent-isolation compact-gamble watching-cost delegation-cost effort-control auto-persist idle-autosave usage-report; do
     HELPER_DIR="${SCRIPT_DIR}/${helper}"
     if [ -d "$HELPER_DIR" ] && [ -x "${HELPER_DIR}/install.sh" ]; then
         echo "─────────────────────────────────────────────"
@@ -122,6 +122,12 @@ cat <<'COMBINED'
             "command": "$HOME/.claude/hooks/cost-helpers/effort-control/effort-pin-banner.sh",
             "timeout": 5,
             "statusMessage": "Checking effort pin..."
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/usage-report/sessionstart-usage-report.sh",
+            "timeout": 10,
+            "statusMessage": "Checking usage-report freshness..."
           }
         ]
       }
@@ -133,6 +139,24 @@ cat <<'COMBINED'
             "type": "command",
             "command": "$HOME/.claude/hooks/cost-helpers/auto-persist/stop-auto-persist.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/idle-autosave/stop-idle-autosave.sh",
+            "timeout": 5,
+            "statusMessage": "Arming idle autosave..."
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/idle-autosave/sessionend-idle-autosave.sh",
+            "timeout": 5,
+            "statusMessage": "Cleaning up idle watcher..."
           }
         ]
       }
@@ -149,6 +173,8 @@ echo ""
 echo "Note: the PostToolUse array has three entries with different matchers."
 echo "The file-count monitor fires on Read/Glob/Grep, the output-size"
 echo "monitor fires on all tools, and the delegation monitor fires on Agent."
+echo "Stop runs auto-persist then idle-autosave; SessionEnd cancels the idle"
+echo "watcher; SessionStart runs the effort banner and the weekly usage report."
 echo ""
 echo "Done. See each helper's README.md for details."
 echo ""

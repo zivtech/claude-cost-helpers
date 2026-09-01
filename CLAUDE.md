@@ -55,13 +55,24 @@ Three rules:
 ├── delegation-cost/             # agent result size tracking
 │   ├── delegation-result-monitor.sh # PostToolUse hook (Agent)
 │   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
-└── idle-autosave/               # automatic handoff notes on session idle
-    ├── hooks/stop-idle-autosave.sh        # Stop hook — arms detached watcher
-    ├── hooks/idle-autosave-worker.sh      # watcher: 4-min idle window, haiku handoff
-    ├── hooks/sessionend-idle-autosave.sh  # SessionEnd hook — cancels watcher + cleans state
+├── idle-autosave/               # automatic handoff notes on session idle
+│   ├── hooks/stop-idle-autosave.sh        # Stop hook — arms detached watcher
+│   ├── hooks/idle-autosave-worker.sh      # watcher: TTL-aware idle window (45 min on the 1h TTL), minimal haiku handoff (~$0.002)
+│   ├── hooks/sessionend-idle-autosave.sh  # SessionEnd hook — cancels watcher + cleans state
+│   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+│   └── (no slash command on purpose — /resume-session is the consumer)
+└── usage-report/                # where the spend goes, from local transcripts (zero tokens)
+    ├── usage_scan.py                      # transcript scanner (per-session usage, classification)
+    ├── usage_report.py                    # markdown report: desktop vs terminal, cache economics, delegation, headless jobs, week-over-week
+    ├── hooks/sessionstart-usage-report.sh # SessionStart hook — weekly background refresh
+    ├── commands/usage-report.md           # /usage-report slash command
+    ├── test.sh                            # fixture tests (synthetic transcript tree)
     ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
-    └── (no slash command on purpose — /resume-session is the consumer)
 ```
+
+Top-level `skills/` holds the skills-registry variants of the slash commands
+(`npx skills add zivtech/claude-cost-helpers`); keep them in sync with the
+per-helper `commands/*.md`.
 
 ## Conventions
 
@@ -91,24 +102,44 @@ Follow the pattern in `idle-tax/`. Checklist:
 
 | Event | Key fields in stdin JSON |
 |---|---|
-| `UserPromptSubmit` | `session_id` |
+| `UserPromptSubmit` | `session_id`, `transcript_path`, `cwd`, `prompt` |
 | `PostToolUse` | `session_id`, `tool_name`, `tool_input` (object), `tool_response` (string or object) |
 | `PreCompact` | `session_id`, `trigger` ("auto" or "manual") |
-| `SessionStart` | (env vars injected from settings.json `env` block) |
+| `SessionStart` | `session_id`, `transcript_path`, `cwd` (+ env vars injected from settings.json `env` block) |
 | `Stop` | `session_id`, `cwd`, `transcript_path` |
 | `SessionEnd` | `session_id`, `cwd`, `reason` |
 
 All hooks use `session_id` (snake_case). Use dual fallback `d.get('sessionId', d.get('session_id', 'unknown'))` for safety. PostToolUse tool response field is `tool_response` — use fallback chain: `tool_response` → `tool_result` → `tool_output`.
 
+## Hook output contract (read before writing a warning)
+
+Two channels, use both:
+
+- **What Claude sees**: `{"hookSpecificOutput": {"hookEventName": "<Event>", "additionalContext": "..."}}`. Supported for `UserPromptSubmit`, `SessionStart`, `PreToolUse`, `PostToolUse`, `Stop`. **Not** for `PreCompact` or `SessionEnd` — those hooks cannot inject context, don't pretend they can.
+- **What the user sees**: top-level `"systemMessage": "..."` — surfaced in the terminal *and* the desktop app. Keep it to one line with the number and the action.
+
+A top-level `additionalContext` field is **not honored** by Claude Code. Every helper shipped that way until September 2026, and in 1,200 transcripts not one of those warnings reached the model — the textbook dead output this file warns about. `stderr` lines (`[idle-tax] …`) are fine as a terminal trace but are not a delivery channel. Always include `"continue": true` and, when you emit a message, `"suppressOutput": true` so stdout JSON isn't echoed twice.
+
+The transcript is the ground truth for cost mechanics: `usage.cache_creation.ephemeral_1h_input_tokens` vs `ephemeral_5m_input_tokens` tells you which cache TTL a session is on; the last assistant message's timestamp is the real "last activity". Read it (backwards, in blocks) instead of hardcoding TTLs or trusting prompt timestamps.
+
 ## Testing hooks locally
 
 ```bash
-# Simulate a cold cache (8 min idle)
-TEST_HOME=$(mktemp -d) && mkdir -p "$TEST_HOME/.claude/.session-state"
-STALE=$(($(date +%s) - 480))
-echo "$STALE" > "$TEST_HOME/.claude/.session-state/test-session.last-activity"
-echo '{"session_id":"test-session"}' | HOME="$TEST_HOME" bash idle-tax/cache-idle-timer.sh
+# Fixture suites (synthetic transcripts, every state, no live session):
+./idle-tax/test.sh
+./usage-report/test.sh
+
+# One-off: run any hook against a real transcript
+echo '{"session_id":"<sid>","transcript_path":"$HOME/.claude/projects/<proj>/<sid>.jsonl"}' \
+  | bash idle-tax/cache-idle-timer.sh
+
+# Idle-autosave worker end to end (short window, no notification):
+IDLE_AUTOSAVE_DELAY=20 IDLE_AUTOSAVE_POLL=5 IDLE_AUTOSAVE_NOTIFY=0 \
+IDLE_AUTOSAVE_SESSIONS_DIR=/tmp/ia IDLE_AUTOSAVE_STATE_DIR=/tmp/ia \
+  bash idle-autosave/hooks/idle-autosave-worker.sh <sid> <transcript.jsonl> <cwd>
 ```
+
+New or changed hook → add a fixture case before shipping. A hook without a test that proves its warning is delivered is presumed dead.
 
 ## Related repos
 

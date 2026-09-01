@@ -2,6 +2,8 @@
 
 *Prepared 2026-04-20. Do not open PR until Alex reviews.*
 
+> **Superseded in part, 2026-09-01:** the 5-minute-TTL / 12.5× premise below is stale — Claude Code sessions now normally run on the 1-hour TTL (2× writes, 20× cold-vs-warm), and the TTL should be detected from the transcript's `usage.cache_creation` breakdown rather than hardcoded. See `idle-tax/cache-idle-timer.sh` (v2) for the detection pattern any upstream PR should copy.
+
 ## The Gap
 
 token-optimizer (476 stars, Python, 78+ releases) has 6 hooks:

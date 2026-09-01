@@ -2,6 +2,8 @@
 
 Prepared on 2026-04-20 for evaluating whether the Claude-oriented cost helpers in this repo should become a Codex CLI/Desktop companion post and, eventually, a Codex-native helper set.
 
+> **Update 2026-09-01:** the Claude-side baseline this evaluation compares against has moved — Claude Code sessions now normally run on the 1-hour prompt-cache TTL (20× cold-vs-warm at 60+ min idle), not the 5-minute/12.5× framing used below. The comparison methodology stands; re-measure before quoting the Claude numbers.
+
 ## Current recommendation
 
 Do not publish a one-to-one Codex mirror of the Claude series.

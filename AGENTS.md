@@ -88,22 +88,30 @@ Follow the pattern in `idle-tax/`. Checklist:
 
 | Event | Key fields in stdin JSON |
 |---|---|
-| `UserPromptSubmit` | `session_id` |
+| `UserPromptSubmit` | `session_id`, `transcript_path`, `cwd`, `prompt` |
 | `PostToolUse` | `session_id`, `tool_name`, `tool_input` (object), `tool_response` (string or object) |
 | `PreCompact` | `session_id`, `trigger` ("auto" or "manual") |
-| `SessionStart` | (env vars injected from settings.json `env` block) |
+| `SessionStart` | `session_id`, `transcript_path`, `cwd` (+ env vars injected from settings.json `env` block) |
 | `Stop` | `session_id`, `cwd`, `transcript_path` |
 
 All hooks use `session_id` (snake_case). Use dual fallback `d.get('sessionId', d.get('session_id', 'unknown'))` for safety. PostToolUse tool response field is `tool_response` — use fallback chain: `tool_response` → `tool_result` → `tool_output`.
 
+## Hook output contract
+
+- **What Claude sees**: `{"hookSpecificOutput": {"hookEventName": "<Event>", "additionalContext": "..."}}` — supported for `UserPromptSubmit`, `SessionStart`, `PreToolUse`, `PostToolUse`, `Stop`; **not** `PreCompact`/`SessionEnd`.
+- **What the user sees**: top-level `"systemMessage": "..."` (terminal and desktop app). One line, number + action.
+- A top-level `additionalContext` field is **not honored** by Claude Code — the pre-September-2026 helpers shipped that way and their warnings never reached the model. `stderr` is a trace, not a delivery channel. Always `"continue": true`, and `"suppressOutput": true` when emitting a message.
+
 ## Testing hooks locally
 
 ```bash
-# Simulate a cold cache (8 min idle)
-TEST_HOME=$(mktemp -d) && mkdir -p "$TEST_HOME/.claude/.session-state"
-STALE=$(($(date +%s) - 480))
-echo "$STALE" > "$TEST_HOME/.claude/.session-state/test-session.last-activity"
-echo '{"session_id":"test-session"}' | HOME="$TEST_HOME" bash idle-tax/cache-idle-timer.sh
+# Fixture suites (synthetic transcripts, every state, no live session):
+./idle-tax/test.sh
+./usage-report/test.sh
+
+# One-off: run any hook against a real transcript
+echo '{"session_id":"<sid>","transcript_path":"$HOME/.claude/projects/<proj>/<sid>.jsonl"}' \
+  | bash idle-tax/cache-idle-timer.sh
 ```
 
 ## Related repos
