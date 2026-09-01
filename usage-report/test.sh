@@ -78,7 +78,7 @@ else
 fi
 
 check() {  # check <name> <regex>
-    if grep -Eq "$2" "$OUT"; then echo "pass  $1"; PASS=$((PASS+1)); else echo "FAIL  $1 — /$2/ not found"; FAIL=$((FAIL+1)); fi
+    if grep -Eq -- "$2" "$OUT"; then echo "pass  $1"; PASS=$((PASS+1)); else echo "FAIL  $1 — /$2/ not found"; FAIL=$((FAIL+1)); fi
 }
 check "counts sessions by class"            'desktop 1, terminal 1, teammates 1, headless 1'
 check "desktop: 2 human turns (notification excluded)" '\| sessions / human turns \| 1 / 2 \| 1 / 1 \|'
@@ -86,7 +86,8 @@ check "desktop: 3 API calls -> 1.5 per turn" '\| API calls per turn \| 1\.5 \| 1
 check "cold resume counted for desktop"      'resumes after >60 min idle \(count, per session, \$\) \| 1, 1\.00, \$[0-9]+ \| 0, 0\.00, \$0 \|'
 check "agent call with explicit model"       'Agent calls per turn / with explicit model \| 0\.50 / 100% \| 0\.00 / n/a \|'
 check "subagent spend attributed to opus"    "share of subagent \\\$ on opus/fable \| 100% \| n/a \|"
-check "teammate cost attributed to terminal lead" 'delegation \$ per turn \(subagents \+ teammates\) \| \$[0-9.]+ \| \$0\.0[1-9] \|'
+# teammate: sonnet, 30K tokens written on the 1h TTL = 30000 * 2.0 * $2/M = $0.12 (+ output), charged to the cli lead's single turn
+check "teammate cost attributed to terminal lead" 'delegation \$ per turn \(subagents \+ teammates\) \| \$[0-9.]+ \| \$0\.1[0-9] \|'
 check "task notification counted"            '\| background task-notification turns \| 1 \| 0 \|'
 check "effort recorded"                      "effort values seen \| \{'max': 1\} \|"
 check "headless job section"                 '1 jobs, \$[0-9]+ total'
