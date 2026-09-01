@@ -270,4 +270,5 @@ except Exception:
 PYEOF
 fi
 
+echo "[auto-persist] state saved for ${SESSION_ID:0:12}..." >&2
 exit 0

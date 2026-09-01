@@ -56,5 +56,5 @@ print('no')
 if [ "$HAS_CONSTRAINT" = "yes" ]; then
     echo '{"continue": true, "suppressOutput": true}'
 else
-    echo '{"continue": true, "additionalContext": "This agent prompt has no output length constraint. Without one, the agent may return thousands of tokens that sit in your context permanently. Consider adding something like: \"report in under 200 words\" or \"keep it brief\"."}'
+    echo '{"continue": true, "suppressOutput": true, "systemMessage": "delegation-cost: this Agent prompt has no output-length constraint — its result will sit in your context permanently.", "hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": "This agent prompt has no output length constraint. Without one, the agent may return thousands of tokens that sit in your context permanently. Consider adding something like: \"report in under 200 words\" or \"keep it brief\"."}}'
 fi

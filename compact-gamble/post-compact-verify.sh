@@ -38,5 +38,5 @@ COMPACT_TIME=$(cat "$PENDING_FILE" 2>/dev/null || echo "unknown")
 rm -f "$PENDING_FILE" 2>/dev/null
 
 cat <<EOF
-{"continue": true, "additionalContext": "POST-COMPACT CHECK: A compaction ran at ${COMPACT_TIME}. Context was summarized and the original discarded. Before continuing, verify: (1) re-read any CLAUDE.md or config files that were driving decisions, (2) confirm the current task and next step match what you remember, (3) check that file paths and branch state are still accurate. If anything feels uncertain, say so — it is better to re-read a file than to act on a compacted summary that dropped a constraint."}
+{"continue": true, "suppressOutput": true, "systemMessage": "compact-gamble: a compaction ran at ${COMPACT_TIME} — Claude has been asked to re-verify constraints before continuing.", "hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "POST-COMPACT CHECK: A compaction ran at ${COMPACT_TIME}. Context was summarized and the original discarded. Before continuing, verify: (1) re-read any CLAUDE.md or config files that were driving decisions, (2) confirm the current task and next step match what you remember, (3) check that file paths and branch state are still accurate. If anything feels uncertain, say so — it is better to re-read a file than to act on a compacted summary that dropped a constraint."}}
 EOF
