@@ -67,9 +67,13 @@ run the `Stop`/`SessionEnd` hooks from `~/.claude/settings.json`.
 
 The handoff call is stripped to the bone: `--model haiku --effort low
 --tools "" --strict-mcp-config --disable-slash-commands --setting-sources ""
---no-session-persistence --system-prompt "<one line>"`. Measured on the
-author's machine: **~250 input tokens, ~$0.002 per handoff, under 10
-seconds**. The same call with Claude Code's default system prompt (agents,
+--no-session-persistence --system-prompt "<one line>"`, with
+`CLAUDE_CODE_EFFORT_LEVEL` overridden in the child's environment because the
+env var outranks `--effort` and hooks inherit the session's pin. Measured on
+the author's machine: **~250 input tokens, ~$0.002 per handoff, under 10
+seconds**. (`--safe-mode` measures identically — 242 input tokens — and is
+the one-flag equivalent if you prefer it; `--bare` is *not* usable here
+because it refuses subscription/keychain auth.) The same call with Claude Code's default system prompt (agents,
 skills, MCP schemas, CLAUDE.md) cost $0.18 — with 85 agents and 200 skills
 installed, the default prompt was 91K tokens. Nothing in the note needs any of
 that.

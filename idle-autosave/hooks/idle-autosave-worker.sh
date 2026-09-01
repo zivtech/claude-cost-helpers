@@ -206,8 +206,11 @@ TRANSCRIPT:
     # run_claude [env -u VAR ...] — one bounded attempt; result lands in BODY.
     run_claude() {
         (
+            # CLAUDE_CODE_EFFORT_LEVEL outranks --effort, and hooks inherit the
+            # session's env (typically the user's global pin) — override it so
+            # the handoff really runs at $EFFORT.
             printf '%s%s' "$PROMPT" "$EXTRACT" \
-                | env "$@" CLAUDE_IDLE_AUTOSAVE_CHILD=1 CLAUDE_SMART_INTERNAL=1 "$CLAUDE_BIN" -p \
+                | env "$@" CLAUDE_CODE_EFFORT_LEVEL="$EFFORT" CLAUDE_IDLE_AUTOSAVE_CHILD=1 CLAUDE_SMART_INTERNAL=1 "$CLAUDE_BIN" -p \
                     --model "$MODEL" --effort "$EFFORT" \
                     --tools "" --strict-mcp-config --disable-slash-commands \
                     --setting-sources "" --no-session-persistence \
