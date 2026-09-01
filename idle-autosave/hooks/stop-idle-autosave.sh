@@ -1,7 +1,10 @@
 #!/bin/bash
 # Idle Autosave — arms a detached watcher on every Stop event. If the session
-# then stays quiet for the idle window (default 240s, inside the 5-min cache
-# TTL), the watcher writes a real handoff note to ~/.claude/sessions/.
+# then stays quiet for the idle window, the watcher writes a real handoff note
+# to ~/.claude/sessions/. The window is derived from the prompt-cache TTL the
+# session is actually running on (read from the transcript): 45 minutes of
+# quiet on the 1-hour TTL, 4 minutes on the 5-minute TTL — i.e. the note
+# exists BEFORE the cache dies.
 #
 # Why: the idle-tax hook warns at RETURN time — after the cache has already
 # expired and the re-cache cost is unavoidable. This hook acts at IDLE time:
@@ -102,5 +105,5 @@ fi
 nohup "$WORKER" "$SESSION_ID" "$TRANSCRIPT" "$CWD" </dev/null >>"$LOG_FILE" 2>&1 &
 echo $! > "$PID_FILE"
 
-echo "[idle-autosave] watcher armed (${IDLE_AUTOSAVE_DELAY:-240}s idle window)" >&2
+echo "[idle-autosave] watcher armed (idle window: ${IDLE_AUTOSAVE_DELAY:-auto, from cache TTL})" >&2
 exit 0
