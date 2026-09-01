@@ -37,11 +37,16 @@ def price(model):
     return (0, 0)
 
 
+def read_mult(model):
+    """Fable/Mythos 5.1 price cache reads at 0.025x base input; others 0.1x."""
+    return 0.025 if ("fable-5-1" in model or "mythos-5-1" in model) else 0.1
+
+
 def cost(model, b):
     pi, po = price(model)
     known = b["c5m"] + b["c1h"]
     writes = (b["c5m"] * 1.25 + b["c1h"] * 2.0 + max(0, b["cache_create"] - known) * 1.25) * pi
-    return (b["input"] * pi + writes + b["cache_read"] * 0.1 * pi + b["output"] * po) / 1e6
+    return (b["input"] * pi + writes + b["cache_read"] * read_mult(model) * pi + b["output"] * po) / 1e6
 
 
 def session_cost(s):
@@ -107,7 +112,7 @@ def kpis(group, teammate_cost):
     for s in group:
         for m, b in s["main"].items():
             pi, po = price(m)
-            comp["cache_read"] += b["cache_read"] * 0.1 * pi / 1e6
+            comp["cache_read"] += b["cache_read"] * read_mult(m) * pi / 1e6
             comp["cache_write"] += (b["c5m"] * 1.25 + b["c1h"] * 2 + max(0, b["cache_create"] - b["c5m"] - b["c1h"]) * 1.25) * pi / 1e6
             comp["output"] += b["output"] * po / 1e6
             comp["input"] += b["input"] * pi / 1e6

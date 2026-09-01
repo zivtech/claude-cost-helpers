@@ -89,8 +89,8 @@ running when it started); everything else with human turns = interactive.
 Human turns exclude system-generated user messages (`<task-notification>`,
 `<command-name>`, …).
 
-Pricing uses Anthropic API list rates with cache multipliers (reads 0.1×,
-5-minute writes 1.25×, 1-hour writes 2×). On a subscription plan the meter
+Pricing uses Anthropic API list rates with cache multipliers (reads 0.1× —
+0.025× on Fable/Mythos 5.1 — 5-minute writes 1.25×, 1-hour writes 2×). On a subscription plan the meter
 weights things differently, so treat the dollars as relative, not billable —
 the *ratios* (desktop vs terminal, reads vs output, this week vs last) are the
 point. The calibration line compares against Claude Code's own cost records

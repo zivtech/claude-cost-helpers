@@ -24,6 +24,11 @@ premium for a cold resume is **20×** a warm hit, but it only bites after an
 hour of quiet instead of five minutes. Sessions drop back to the 5-minute TTL
 when an account is in usage overage, and other setups may still be on it.
 
+One more mover: **Claude Fable 5.1** (September 2026) prices cache *reads* at
+0.025× base input instead of 0.1×. Warm turns on that model are 4× cheaper,
+the cold write price is unchanged — so the cold-vs-warm ratio there stretches
+to **80×** (50× on the 5-minute TTL). The hook prices reads per model.
+
 v2 stops guessing. The hook reads the TTL that is *actually in effect* from
 the last assistant message in the session transcript (`usage.cache_creation.
 ephemeral_1h_input_tokens` vs `ephemeral_5m_input_tokens`), measures idle time
@@ -110,7 +115,7 @@ On every `UserPromptSubmit` the hook:
 4. Emits nothing if the gap is under `TTL − lead`; an *expires-in* heads-up
    between there and the TTL; *expired* beyond it. Both carry the priced
    re-write (`context × input price × 2.0` for the 1h TTL, `× 1.25` for 5m,
-   vs `× 0.1` warm) and point at the newest handoff note — preferring this
+   vs `× 0.1` warm — `× 0.025` on Fable/Mythos 5.1) and point at the newest handoff note — preferring this
    session's own idle-autosave note if one exists.
 5. Falls back to the original per-prompt timestamp file (and a 5-minute TTL)
    if the hook input has no `transcript_path`.

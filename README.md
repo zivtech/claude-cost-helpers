@@ -216,6 +216,8 @@ The common thread: every helper makes an invisible cost visible at the moment it
 
 The idle-tax and idle-autosave helpers were written against Anthropic's 5-minute prompt-cache TTL. Claude Code sessions now normally run on the **1-hour** TTL (written at 2× input price instead of 1.25×, so a cold resume is **20×** a warm hit rather than 12.5×), and drop back to 5 minutes only in usage overage. Both helpers now read the TTL in effect from the session transcript instead of assuming one; the blog posts still describe the 5-minute world. If you installed before September 2026, re-run the two installers.
 
+And one model-level mover: **Claude Fable 5.1** prices cache *reads* at 0.025× base input instead of the standard 0.1×. Warm turns on that model are 4× cheaper, cold writes are unchanged, and the cold-vs-warm ratio stretches to ~80× — idle-tax and usage-report both price reads per model.
+
 ### Hook output contract (fixed September 2026)
 
 Every warning hook now emits its message through the documented channels — `hookSpecificOutput.additionalContext` for Claude and `systemMessage` for you (shown in the terminal *and* the Claude Code desktop app). The earlier top-level `additionalContext` field was never injected by Claude Code, which means the v1 warnings were reaching nobody; the `[idle-tax] …` lines you may have seen in a terminal were stderr traces, not the warning. Re-install to get the fixed hooks.

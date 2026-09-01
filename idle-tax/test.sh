@@ -83,6 +83,9 @@ run_case "1h TTL, 75 min idle -> 20x at fable price (\$6.00 vs \$0.30)" "$T" '\$
 run_case "IDLE_TAX_QUIET=1 -> no systemMessage" "$T" '!systemMessage' IDLE_TAX_QUIET=1
 run_case "IDLE_TAX_QUIET=1 -> context still injected" "$T" 'CACHE EXPIRED' IDLE_TAX_QUIET=1
 
+make_transcript "$T" 4500 1h 300000 claude-fable-5-1
+run_case "Fable 5.1: reads at 0.025x -> \$6.00 cold vs ~\$0.08 warm (80x)" "$T" '\$6\.00 vs \$0\.0[78] for a warm hit \(80x\)'
+
 make_transcript "$T" 480 5m 100000 claude-opus-5
 run_case "5m TTL, 8 min idle -> EXPIRED, 12.5x at opus price" "$T" 'CACHE EXPIRED \(8 min idle, 5-minute TTL\).*\$0\.62 vs \$0\.05 for a warm hit \(12\.5x\)'
 

@@ -100,5 +100,14 @@ check "levers: cold resume flagged"          'desktop: 1 resumes after >60 min i
 # sub: opus 5m write 20K*1.25*5=$0.125 + out 800*25=$0.02 -> total ~$2.73
 check "desktop dollars in expected range"    '\| \$ per session \(median / mean\) \| \$2\.[6-8][0-9] / \$2\.[6-8][0-9] \|'
 
+# Read-multiplier: Fable/Mythos 5.1 price cache reads at 0.025x base input.
+if python3 -c "
+import sys; sys.path.insert(0, '$HERE')
+from usage_report import cost
+b = dict(calls=1, input=0, cache_create=0, cache_read=1_000_000, output=0, c5m=0, c1h=0)
+assert abs(cost('claude-fable-5-1', b) - 0.25) < 1e-9, cost('claude-fable-5-1', b)
+assert abs(cost('claude-fable-5', b) - 1.00) < 1e-9, cost('claude-fable-5', b)
+"; then echo "pass  fable-5-1 reads priced at 0.025x, fable-5 at 0.1x"; PASS=$((PASS+1)); else echo "FAIL  read multiplier"; FAIL=$((FAIL+1)); fi
+
 echo "----"; echo "passed $PASS, failed $FAIL"
 [ "$FAIL" -eq 0 ]

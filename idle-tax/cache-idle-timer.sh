@@ -16,9 +16,9 @@
 # context size and the real model, so the number you see is your number.
 #
 # Cold-cache economics (Anthropic list prices):
-#   warm hit          : 0.1x  input price
-#   re-write, 5m TTL  : 1.25x input price   (12.5x a warm hit)
-#   re-write, 1h TTL  : 2.0x  input price   (20x a warm hit)
+#   warm hit          : 0.1x  input price (0.025x on Claude Fable/Mythos 5.1)
+#   re-write, 5m TTL  : 1.25x input price   (12.5x a warm hit; 50x on 5.1)
+#   re-write, 1h TTL  : 2.0x  input price   (20x a warm hit; 80x on 5.1)
 #
 # Output uses the documented hook contract for UserPromptSubmit:
 #   hookSpecificOutput.additionalContext  -> what Claude sees this turn
@@ -71,6 +71,13 @@ def price_for(model):
         if key in (model or ""):
             return p
     return 5.0
+
+
+def read_mult(model):
+    # Claude Fable 5.1 / Mythos 5.1 price cache reads at 0.025x base input
+    # (pricing page, September 2026); every other model reads at 0.1x.
+    m = model or ""
+    return 0.025 if ("fable-5-1" in m or "mythos-5-1" in m) else 0.1
 
 
 def emit(obj):
@@ -199,10 +206,11 @@ if gap < warn_at:
 
 # ---- Pricing -----------------------------------------------------------------
 p = price_for(model)
+rm = read_mult(model)
 write_mult = 2.0 if ttl >= 3600 else 1.25
-warm = ctx * p * 0.1 / 1e6
+warm = ctx * p * rm / 1e6
 cold = ctx * p * write_mult / 1e6
-ratio = write_mult / 0.1
+ratio = write_mult / rm
 ttl_label = "1-hour" if ttl >= 3600 else "5-minute"
 ctx_label = f"~{fmt_tokens(ctx)} cached tokens" if ctx else "the full conversation prefix"
 model_label = model or "current model"
