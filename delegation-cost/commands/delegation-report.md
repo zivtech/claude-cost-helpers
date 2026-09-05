@@ -1,39 +1,43 @@
 ---
-description: Show per-agent delegation result sizes and estimated carrying cost for the current session.
+description: Show per-agent delegation result sizes and what carrying them costs this session, priced for the model and cache TTL the session is actually on. Computed locally, zero Claude tokens.
+argument-hint: [--session SID] [--horizon N]
 ---
 
 # Delegation Report
 
-Show how much context weight is coming from subagent results in this session.
+Run the report and show its output verbatim — the output IS the report. Do not
+re-derive the numbers, re-price them, or read the transcript it was computed
+from (that pulls megabytes into context for nothing).
 
-## Process
+!`python3 "$HOME/.claude/hooks/cost-helpers/delegation-cost/delegation_report.py" $ARGUMENTS`
 
-1. Find the current session's delegation tracking file at `~/.claude/.session-state/<session_id>.delegation-agents`
-2. If the file doesn't exist, report: "No delegation results tracked in this session."
-3. If it exists, read the file. Each line is: `<tokens>\t<timestamp>` — one entry per agent result.
-4. Report a table:
+After showing it, add exactly one line: the action the **Verdict** points to,
+phrased as something to do on the next agent dispatch.
 
-```
-## Delegation Report
+## Where the numbers come from
 
-| # | Time  | Result size | Carrying cost (20 turns, warm) |
-|---|-------|-------------|-------------------------------|
-| 1 | 14:32 | ~3K tokens  | $0.09                         |
-| 2 | 14:35 | ~8K tokens  | $0.24                         |
-| 3 | 14:41 | ~2K tokens  | $0.06                         |
+- **Result sizes:** `~/.claude/.session-state/<session_id>.delegation-agents`,
+  written by the delegation-cost hook — one `tokens<TAB>time` line per agent
+  result, tokens estimated at ~4 characters each.
+- **Model, cache TTL, prefix size:** the last main-thread assistant message of
+  the session transcript — its `model`, its `usage.cache_creation` breakdown
+  (`ephemeral_1h_input_tokens > 0` means the 1-hour TTL) and its token counts.
+  The same signals the hooks read; nothing is assumed.
+- **Prices:** Anthropic list input prices per MTok (Fable/Mythos 5.1 $10,
+  Opus 5 $5, Sonnet 5 $2, Haiku 4.5 $1); warm cache reads at 0.1x input
+  (0.025x on Fable/Mythos 5.1); cache writes at 2x on the 1-hour TTL, 1.25x on
+  the 5-minute one.
 
-**Total delegation results:** ~13K tokens
-**Estimated carrying cost** (20 turns at $1.50/MTok): $0.39
-**With cold-cache turns** (20 turns at blended $5/MTok): $1.30
-
-Tip: results over 5K tokens benefit most from tighter prompt constraints
-("report in under 200 words") or writing findings to a file.
-```
-
-5. Calculate carrying cost as: `total_tokens × 20 turns × rate / 1,000,000`
-   - Warm cache rate: $1.50/MTok
-   - Blended rate (assumes some cold turns): $5.00/MTok
+If the script is missing, re-run `delegation-cost/install.sh` from the
+claude-cost-helpers checkout. Do not estimate the dollars by hand — the v1 of
+this command did exactly that, with Opus-4-era rates, and was wrong by 4x.
 
 ## Why this helps
 
-The delegation invoice (what each agent spent) is visible in `/usage`. The delegation tax (what the parent pays to carry the results) is invisible. This report makes the tax visible so you can decide whether to constrain future agent output, split the session, or switch to file-based handoffs.
+The delegation invoice (what each agent spent) is visible in `/usage`. The
+delegation tax (what the parent pays to re-read the results on every later API
+call) is not — and on current models it is often smaller than it feels. On
+Fable 5.1, warm reads cost 0.025x input, so 13K tokens of agent results is a
+third of a cent per call. The report says whether delegation is actually your
+tax this session or whether the cost lives in the rest of the prefix, so you
+constrain agents when it matters and stop worrying when it doesn't.

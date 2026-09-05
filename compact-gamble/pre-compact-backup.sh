@@ -7,13 +7,13 @@
 #
 # This hook does two things:
 #   1. Writes a metadata marker file so you know exactly when a compact happened
-#   2. Injects additionalContext asking Claude to summarize key context before
-#      the compact proceeds — that summary survives into the compacted session
+#   2. Surfaces a systemMessage so you can still choose /save-session + fresh
+#      session instead of gambling on the compaction
 #
 # What this hook CANNOT do: access conversation content, file states, or
-# decisions. Those live in Claude's context, not in the hook environment.
-# The real value here is the additionalContext message that prompts Claude
-# to preserve what matters before compaction runs.
+# decisions — or inject context into the compaction (PreCompact has no
+# additionalContext channel). The post-compact-verify hook does the
+# Claude-facing part on the next prompt.
 #
 # Part of: claude-cost-helpers / compact-gamble
 # Companion to: The Economics of Claude Code, Part 4: The Compact Gamble
@@ -81,6 +81,13 @@ STATE_DIR="${HOME}/.claude/.session-state"
 mkdir -p "$STATE_DIR" 2>/dev/null
 echo "$ISO_TIMESTAMP" > "${STATE_DIR}/${SESSION_ID}.compact-pending" 2>/dev/null
 
+# PreCompact hooks cannot inject context (Claude Code honors
+# hookSpecificOutput.additionalContext for UserPromptSubmit, SessionStart,
+# PreToolUse, PostToolUse and Stop — not PreCompact). The pre-v2 version of
+# this hook emitted a top-level additionalContext that was never delivered.
+# What a PreCompact hook CAN do is tell you: systemMessage is surfaced on
+# every platform. The post-compact-verify hook (UserPromptSubmit) carries the
+# instruction to Claude on the first prompt after the compaction.
 cat <<EOF
-{"continue": true, "additionalContext": "PRE-COMPACT BACKUP: Compaction is about to run. ${MARKER_NOTE} Compaction is lossy — Claude decides what to keep. If something critical gets dropped, you can reference this marker to know when the compact happened.\n\nIMPORTANT: Before this compact proceeds, please briefly summarize: (1) what we were working on, (2) key decisions made, (3) current state of files, (4) the next step. This will be preserved in the compacted context.\n\nConsider: starting fresh with /save-session is often cheaper than compacting. Compaction keeps a stale session alive; a fresh session starts with a clean, warm cache."}
+{"continue": true, "suppressOutput": true, "systemMessage": "compact-gamble: compaction is about to run. ${MARKER_NOTE} Compaction is lossy; if you would rather not gamble, cancel and /save-session, then continue in a fresh session (clean, warm cache)."}
 EOF

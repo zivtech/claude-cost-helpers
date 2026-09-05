@@ -13,6 +13,10 @@
 # approximate — it is a floor based on turn count, not a ceiling. Actual usage
 # depends on message length, tool output, and file reads.
 #
+# Output uses the documented hook contract for UserPromptSubmit:
+#   hookSpecificOutput.additionalContext -> what Claude sees this turn
+#   systemMessage                        -> what YOU see (CLI and desktop app)
+#
 # Part of: claude-cost-helpers / just-one-more-turn
 # Companion to: The Economics of Claude Code, Part 2: The "just one more turn" trap
 
@@ -49,22 +53,44 @@ EST_K=$((EST_TOKENS / 1000))
 
 # Compute percentage of threshold
 PCT=$(( (EST_TOKENS * 100) / CONTEXT_THRESHOLD ))
+echo "[context] turn ${TURN_COUNT}, ~${EST_K}K est (${PCT}%)" >&2
+
+emit() {  # emit <systemMessage> <additionalContext>
+    MSG="$1" CONTEXT="$2" python3 - <<'PYEOF'
+import json, os
+print(json.dumps({
+    "continue": True,
+    "suppressOutput": True,
+    "systemMessage": os.environ["MSG"],
+    "hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
+                           "additionalContext": os.environ["CONTEXT"]},
+}))
+PYEOF
+}
 
 if [ "$PCT" -ge 100 ]; then
     # Past the threshold — strong warning
-    cat <<EOF
-{"continue": true, "additionalContext": "CONTEXT ROT ZONE (~${EST_K}k est): Context is past the rot zone (~${EST_K}k est). Quality and cost are both degrading. \`/split\` recommended.\n\nAt this size, each turn re-reads the full context. You are paying for tokens that are diluting rather than improving results.\n\nRun \`/split\` to save a handoff and continue in a clean session."}
-EOF
+    echo "[context] rot zone (~${EST_K}k est)" >&2
+    emit "just-one-more-turn: CONTEXT ROT ZONE (~${EST_K}k est) — /split recommended." \
+         "CONTEXT ROT ZONE (~${EST_K}k est): Context is past the rot zone (~${EST_K}k est). Quality and cost are both degrading. \`/split\` recommended.
+
+At this size, each turn re-reads the full context. You are paying for tokens that are diluting rather than improving results.
+
+Run \`/split\` to save a handoff and continue in a clean session."
 elif [ "$PCT" -ge 90 ]; then
     # Approaching threshold — direct warning
-    cat <<EOF
-{"continue": true, "additionalContext": "CONTEXT WARNING (~${EST_K}k est): Context is getting heavy (~${EST_K}k est). Consider \`/split\` to start fresh with a handoff.\n\nResponse quality tends to degrade as the context window fills. Starting a new session now is cheaper and produces better results than continuing here."}
-EOF
+    echo "[context] warning (~${EST_K}k est)" >&2
+    emit "just-one-more-turn: CONTEXT WARNING (~${EST_K}k est) — consider /split." \
+         "CONTEXT WARNING (~${EST_K}k est): Context is getting heavy (~${EST_K}k est). Consider \`/split\` to start fresh with a handoff.
+
+Response quality tends to degrade as the context window fills. Starting a new session now is cheaper and produces better results than continuing here."
 elif [ "$PCT" -ge 70 ]; then
     # Soft warning — heads-up, not urgent
-    cat <<EOF
-{"continue": true, "additionalContext": "CONTEXT HEADS-UP (~${EST_K}k est): Context is getting heavy (~${EST_K}k est). You're approaching the rot zone where quality degrades and cost per turn keeps climbing.\n\nNo action needed yet — but if this session runs much longer, consider \`/split\`."}
-EOF
+    echo "[context] heads-up (~${EST_K}k est)" >&2
+    emit "just-one-more-turn: context heads-up (~${EST_K}k est) — approaching the rot zone." \
+         "CONTEXT HEADS-UP (~${EST_K}k est): Context is getting heavy (~${EST_K}k est). You're approaching the rot zone where quality degrades and cost per turn keeps climbing.
+
+No action needed yet — but if this session runs much longer, consider \`/split\`."
 else
     # Below 70% — stay silent
     echo '{"continue": true, "suppressOutput": true}'

@@ -4,24 +4,57 @@ Companion code for [*The Economics of Claude Code, Part 1: The Idle Tax*](https:
 
 ## What it does
 
-Warns you when Claude Code's prompt cache has gone cold (or is about to). The Anthropic prompt cache has a 5-minute idle TTL. Once it expires, your next message has to re-cache the entire conversation prefix at 1.25× base token cost — about **12.5× more** than a warm-cache message would cost. There's no native warning for this. This package adds one.
+Warns you when Claude Code's prompt cache has gone cold (or is about to), and
+prices the damage in your own numbers. Once the cache expires, your next
+message re-writes the entire conversation prefix at a premium over the warm
+hit you would otherwise have paid. There is no native warning for this. This
+package adds one.
 
 It also installs two slash commands you'll want when the warning fires:
 
 - `/save-session` — capture the current session into a structured handoff file
 - `/resume-session` — load the most recent handoff into a fresh session
 
+## The TTL changed — read this if you installed before September 2026
+
+The helper originally hardcoded Anthropic's 5-minute cache TTL and a 12.5×
+cold-vs-warm premium (1.25× write vs 0.1× read). Claude Code sessions now
+normally run on the **1-hour** TTL, written at **2×** input price — so the
+premium for a cold resume is **20×** a warm hit, but it only bites after an
+hour of quiet instead of five minutes. Sessions drop back to the 5-minute TTL
+when an account is in usage overage, and other setups may still be on it.
+
+One more mover: **Claude Fable 5.1** (September 2026) prices cache *reads* at
+0.025× base input instead of 0.1×. Warm turns on that model are 4× cheaper,
+the cold write price is unchanged — so the cold-vs-warm ratio there stretches
+to **80×** (50× on the 5-minute TTL). The hook prices reads per model.
+
+v2 stops guessing. The hook reads the TTL that is *actually in effect* from
+the last assistant message in the session transcript (`usage.cache_creation.
+ephemeral_1h_input_tokens` vs `ephemeral_5m_input_tokens`), measures idle time
+from that message's timestamp (the last API call, not your last prompt — a long
+agentic turn is not idle time), and prices the re-cache from the real cached
+context size and the real model.
+
+Also fixed in v2: the pre-v2 hook emitted its warning as a top-level
+`additionalContext` field, which Claude Code does not honor for
+`UserPromptSubmit`. In 1,200 transcripts on the author's machine the warning
+text never once reached the model. It now uses the documented
+`hookSpecificOutput.additionalContext` (what Claude sees) plus `systemMessage`
+(what you see — in the terminal *and* the desktop app).
+
 ## What you get
 
 | File | Purpose |
 |---|---|
-| `cache-idle-timer.sh` | Bash hook that runs on every user prompt. Checks how long since your last activity in this session. Warns at ~4 min (cache expiring), warns again at >5 min (cache dead). |
-| `commands/save-session.md` | `/save-session` slash command — writes a structured handoff to `~/.claude/sessions/YYYY-MM-DD-<topic>-session.md` |
-| `commands/resume-session.md` | `/resume-session` slash command — loads the most recent handoff and orients you |
+| `cache-idle-timer.sh` | UserPromptSubmit hook. Detects the TTL and idle gap from the transcript; warns from 15 minutes before a 1-hour TTL expires (1 minute before a 5-minute one) and again once it has expired, with the dollar cost of the re-write |
+| `commands/save-session.md` | `/save-session` — writes a structured handoff to `~/.claude/sessions/YYYY-MM-DD-<topic>-session.md` |
+| `commands/resume-session.md` | `/resume-session` — loads the most recent handoff and orients you |
 | `settings-snippet.json` | The `hooks` block to merge into `~/.claude/settings.json` |
-| `install.sh` | Copies files into place, backs up anything it overwrites, prints the snippet to merge |
+| `install.sh` / `uninstall.sh` | Copy files into place with backups; print the snippet to merge |
+| `test.sh` | Fixture tests for every state the hook can emit (no live session needed) |
 
-Total install footprint: one script, two slash commands, one JSON snippet to merge. Zero dependencies beyond `bash`, `python3` (for JSON parsing — already present on macOS and most Linux), and `date`.
+Dependencies: `bash`, `python3` (stdlib), `date`.
 
 ## Install
 
@@ -31,52 +64,87 @@ cd claude-cost-helpers/idle-tax
 ./install.sh
 ```
 
-The script:
+The script copies the hook to `~/.claude/hooks/cost-helpers/idle-tax/`, the
+two slash commands to `~/.claude/commands/` (backing up existing ones), and
+prints the JSON snippet to merge into `~/.claude/settings.json`. It does
+**not** modify `settings.json` for you.
 
-1. Creates `~/.claude/hooks/cost-helpers/idle-tax/` and copies the hook in
-2. Copies the two slash command files into `~/.claude/commands/` (backs up any existing `save-session.md` or `resume-session.md` first)
-3. Prints the JSON snippet you need to merge into `~/.claude/settings.json` and the verification command
-
-It does **not** automatically modify `settings.json` — JSON merging is the kind of thing where a one-liner gone wrong silently breaks your whole Claude Code config. Manual merge takes ten seconds and keeps you in control.
+Pair it with [idle-autosave](../idle-autosave/) — that helper writes the
+handoff *before* the cache dies, so the "start fresh" option this warning
+offers is always free.
 
 ## What you'll see
 
-After install, when you return to a session after >5 min idle, the next message you send will surface this in Claude's response context:
+Come back after 75 minutes to a 300K-token session on `claude-fable-5`:
 
 ```
-CACHE EXPIRED (8 min idle): Your prompt cache has expired (5-min TTL).
-This message will re-cache your full conversation context at 1.25× base
-token cost. For a 100K-token Opus session, that is ~$0.63 vs ~$0.05 for
-a cache hit (12.5× premium).
-
-Options:
-1. Continue here (accept the re-cache cost)
-2. /save-session and start fresh (cheaper if context is large)
-3. Next time, /save-session before stepping away for >3 minutes
+idle-tax: CACHE EXPIRED (1h 15m idle, 1-hour TTL) — this turn re-writes
+~300K cached tokens (≈$6.00, 20x a warm hit). Handoff available:
+/resume-session in a fresh session is free.
 ```
 
-At ~4 min (one minute before cache death) you get a softer heads-up. Under 4 min, the hook stays quiet.
+and Claude sees:
 
-The warning is **informational, not blocking** — your prompt always proceeds. The point is to make the cost legible so you can choose, not to interrupt your work.
+```
+CACHE EXPIRED (1h 15m idle, 1-hour TTL): this prompt re-writes ~300K cached
+tokens for claude-fable-5 at 2.0x input price: about $6.00 vs $0.30 for a
+warm hit (20x).
+Latest handoff note: ~/.claude/sessions/2026-09-01-idle-autosave-ab12cd34-session.md (saved 31 min ago)
+Options: (1) continue here and accept the re-cache; (2) if the context is
+stale or large, /save-session (or use the handoff above) and continue in a
+fresh session with /resume-session; (3) next time, /save-session before
+stepping away for more than the TTL.
+This is informational — the prompt proceeds normally.
+```
+
+At 45–60 minutes idle (on the 1-hour TTL) you get a softer
+`CACHE EXPIRES IN 12 min` heads-up. Under that, the hook stays silent.
+
+The warning is **informational, not blocking** — your prompt always proceeds.
 
 ## How it works
 
-The hook fires on every `UserPromptSubmit`. It records a timestamp per `sessionId` in `~/.claude/.session-state/<id>.last-activity`. Each new prompt:
+On every `UserPromptSubmit` the hook:
 
-1. Reads the previous timestamp
-2. Computes the gap in seconds
-3. Updates the timestamp to now
-4. If gap ≥ 300s: emit the cache-expired warning
-5. If gap ≥ 240s: emit the about-to-expire warning
-6. Otherwise: stay silent
+1. Reads `transcript_path` from the hook input and scans the transcript
+   backwards for the last main-thread assistant message (subagent lines are
+   skipped).
+2. Takes its timestamp (idle gap = now − last API call), its `usage` block
+   (cached context = `cache_read + cache_creation + input`) and its model.
+3. Picks the TTL: 3600s if `ephemeral_1h_input_tokens > 0`, else 300s.
+4. Emits nothing if the gap is under `TTL − lead`; an *expires-in* heads-up
+   between there and the TTL; *expired* beyond it. Both carry the priced
+   re-write (`context × input price × 2.0` for the 1h TTL, `× 1.25` for 5m,
+   vs `× 0.1` warm — `× 0.025` on Fable/Mythos 5.1) and point at the newest handoff note — preferring this
+   session's own idle-autosave note if one exists.
+5. Falls back to the original per-prompt timestamp file (and a 5-minute TTL)
+   if the hook input has no `transcript_path`.
 
-Output uses Claude Code's hook contract: `additionalContext` field surfaces the warning to Claude in the next turn, `continue: true` ensures the prompt proceeds normally.
+Output: `{"continue": true, "suppressOutput": true, "systemMessage": …,
+"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
+"additionalContext": …}}`.
 
 ## Configuration
 
-The package ships with the 5-min TTL hardcoded because that's currently Anthropic's documented value. If Anthropic changes the TTL, edit `cache-idle-timer.sh` lines 43 and 53 (the `300` and `240` thresholds).
+| Var | Default | Meaning |
+|---|---|---|
+| `CACHE_TTL_SECONDS` | detected | Force a TTL (300 or 3600) instead of reading it from the transcript |
+| `CACHE_WARN_SECONDS` | 900 (1h TTL) / 60 (5m TTL) | Lead time before expiry at which the heads-up starts |
+| `IDLE_TAX_QUIET` | unset | Set to `1` to omit the user-facing `systemMessage` (Claude still gets the context) |
 
-If you don't want the early warning at 4 min and only want the cache-expired alert at >5 min, comment out or delete the `elif` branch (lines 53–58).
+Prices are Anthropic list rates per model family (fable/opus/sonnet/haiku);
+unknown models are priced as opus. Edit `PRICE_IN` in the script if the
+table drifts.
+
+## Testing
+
+```bash
+./test.sh
+```
+
+Builds synthetic transcripts for each state (warm, expiring, expired, 1h and
+5m TTLs, fallback, sidechain noise, corrupt file) and asserts on the emitted
+JSON. All cases must pass before shipping a change.
 
 ## Uninstall
 
@@ -92,19 +160,27 @@ rm ~/.claude/commands/save-session.md ~/.claude/commands/resume-session.md
 # Then remove the UserPromptSubmit hook block from ~/.claude/settings.json
 ```
 
-If `install.sh` backed up existing slash command files (named `*.bak.YYYYMMDD-HHMMSS`), `uninstall.sh` restores them.
-
 ## Why this exists
 
-Most of what makes Claude Code expensive isn't the prompts you write — it's the habits you don't think about. The idle tax is the most universal of those habits and the most invisible. Walk away for a few minutes, come back, type one more prompt: that single message just cost you 12× what it should have. Multiply across a normal workday and the bill diverges from the value you got.
+Most of what makes Claude Code expensive isn't the prompts you write — it's
+the habits you don't think about. Walking away from a big session and coming
+back to it is the most universal of those habits, and the cost is invisible:
+on the 1-hour TTL a 300K-token Fable session costs about six dollars to wake
+up, and on the author's machine that happened roughly once per desktop-app
+session.
 
-The fix isn't "stop walking away from your computer." It's making the cost visible at the moment it happens, so you have a real choice: keep going (sometimes that's right) or save and start fresh (often cheaper at scale).
-
-For the full story see [*The Economics of Claude Code, Part 1: The Idle Tax*](https://zivtech.github.io/zivtech-demos/economics-of-claude/idle-tax.html).
+The fix isn't "stop walking away." It's making the cost visible at the moment
+it happens, with a handoff already written, so the cheap choice is a real
+choice.
 
 ## Provenance
 
-This is a productized version of hooks and slash commands the author has been running in his personal Claude Code config for months. The hook script is unchanged from the working version. The slash commands are unchanged from the working versions. Nothing here is new code — what's new is packaging it for sharing.
+v1 (spring 2026) productized a hook the author had run for months, with the
+5-minute TTL hardcoded. v2 (September 1, 2026) followed a transcript analysis
+of 1,200 sessions that showed 99.7% of cache writes were on the 1-hour TTL,
+that the cliff had moved to 60 minutes, and that the v1 warning had never
+reached the model because of its output shape. Every number in this README
+comes from that analysis.
 
 ## License
 

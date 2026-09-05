@@ -17,15 +17,16 @@ This repository now includes a **limited Codex helper lane** under [codex-helper
 
 | Helper | Blog post | Hook type | Slash commands | Status |
 |---|---|---|---|---|
-| [Idle Tax](idle-tax/) | Part 1: The Idle Tax | `UserPromptSubmit` — warns when cache has expired or is about to | `/save-session`, `/resume-session` | **Built + tested** |
+| [Idle Tax](idle-tax/) | Part 1: The Idle Tax | `UserPromptSubmit` — detects the cache TTL in effect (1-hour or 5-minute) from the transcript and warns, with the priced re-write, when the cache is about to expire or has | `/save-session`, `/resume-session` | **Built + tested** (v2, TTL-aware) |
 | [Just One More Turn](just-one-more-turn/) | Part 2: The "just one more turn" trap | `UserPromptSubmit` — warns when context usage approaches the rot zone | `/split` | **Built + tested** |
 | [Subagent Isolation](subagent-isolation/) | Part 3: The agent that read 200 files | `PostToolUse` on Read/Glob/Grep — warns when file count exceeds threshold | `/delegate` | **Built + tested** |
 | [Compact Gamble](compact-gamble/) | Part 4: The compact gamble | `PreCompact` — saves a marker and urges context preservation before compaction | `/safe-compact` | **Built + tested** |
 | [Watching Cost](watching-cost/) | Part 5: The watching cost | `PostToolUse` (all) — warns when tool output exceeds token threshold | `/to-file` | **Built + tested** |
-| [Delegation Cost](delegation-cost/) | Part 6: The delegation tax | `PostToolUse` on Agent — warns when agent results exceed token threshold | `/delegation-report` | **Built + tested** |
+| [Delegation Cost](delegation-cost/) | Part 6: The delegation tax | `PostToolUse` on Agent — warns when agent results exceed token thresholds, and when an agent ran long enough that the parent's prompt cache expired (TTL, context size and model read from the transcript; priced) | `/delegation-report` | **Built + tested** (v2, TTL-aware) |
 | [Effort Control](effort-control/) | Part 1 addendum: 4.7's `xhigh` default | `SessionStart` — confirms `CLAUDE_CODE_EFFORT_LEVEL` pin is active | `/deep` | **Built + tested** |
 | [Auto-Persist](auto-persist/) | Part 1 addendum: Stop-hook session state | `Stop` — writes minimal environmental state after every turn | `/last-state` | **Built + tested** |
-| [Idle Autosave](idle-autosave/) | Follow-up post (in prep) | `Stop` — arms a detached watcher; after 4 min of quiet it writes a real handoff note via headless haiku (~$0.01). `SessionEnd` — cancels the watcher and cleans state when a session ends | *(none — `/resume-session` is the consumer)* | **Built + tested** |
+| [Idle Autosave](idle-autosave/) | Follow-up post (in prep) | `Stop` — arms a detached watcher; after a TTL-aware window of quiet (45 min on the 1-hour TTL, 4 min on the 5-minute one) it writes a real handoff note via a minimal headless haiku call (~$0.002). `SessionEnd` — cancels the watcher and cleans state when a session ends | *(none — `/resume-session` is the consumer)* | **Built + tested** (v2, TTL-aware) |
+| [Usage Report](usage-report/) | Measure before optimizing | `SessionStart` — refreshes a weekly report from local transcripts: desktop vs terminal $/turn, cache read/write split, cold resumes, delegation audit, headless jobs, week-over-week. Zero Claude tokens | `/usage-report` | **Built + tested** |
 
 ## Install
 
@@ -57,6 +58,8 @@ cd compact-gamble && ./install.sh
 cd watching-cost && ./install.sh
 cd effort-control && ./install.sh
 cd auto-persist && ./install.sh
+cd idle-autosave && ./install.sh
+cd usage-report && ./install.sh
 ```
 
 Each installer copies a hook script + slash commands into `~/.claude/`, backs up anything it would overwrite, and prints the `settings.json` snippet to merge. No auto-modification of settings — you merge manually.
@@ -141,6 +144,12 @@ If you install all helpers, here's the combined `hooks` block for `~/.claude/set
             "command": "$HOME/.claude/hooks/cost-helpers/effort-control/effort-pin-banner.sh",
             "timeout": 5,
             "statusMessage": "Checking effort pin..."
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/usage-report/sessionstart-usage-report.sh",
+            "timeout": 10,
+            "statusMessage": "Checking usage-report freshness..."
           }
         ]
       }
@@ -196,11 +205,22 @@ The helpers are independent — install any subset. But they're designed to laye
 - **Compact Gamble** protects you when compaction fires: the backup hook means you can recover if a compact drops something
 - **Watching Cost** catches the other source of context bloat: tool output you didn't need in context
 - **Delegation Cost** is the mirror of subagent-isolation: delegation keeps files out of the parent (good), but agent results pile up in it (bad). This hook tracks that accumulation.
-- **Effort Control** pins `CLAUDE_CODE_EFFORT_LEVEL=high` so Opus 4.7 doesn't silently spend `xhigh` per turn
+- **Effort Control** pins `CLAUDE_CODE_EFFORT_LEVEL=high` so the model doesn't silently spend `xhigh` per turn — and reminds you that the pin is inherited by every subagent and headless job you run
 - **Auto-Persist** writes environmental state after every turn via Stop hook — zero Claude tokens, always current. The automatic counterpart to idle-tax's manual `/save-session`
-- **Idle Autosave** closes idle-tax's loop. Idle-tax warns at *return* time — after the cache already died. Idle-autosave acts at *idle* time: 4 minutes of quiet (inside the 5-minute TTL) and a detached watcher writes a real handoff via headless haiku (~$0.01), so "start fresh" is always a safe answer. The handoff lands in the same `*-session.md` location idle-tax surfaces and `/resume-session` loads
+- **Idle Autosave** closes idle-tax's loop. Idle-tax warns at *return* time — after the cache already died. Idle-autosave acts at *idle* time: it reads the cache TTL the session is on and, 15 minutes before it expires (45 minutes of quiet on the 1-hour TTL), a detached watcher writes a real handoff via a minimal headless haiku call (~$0.002), so "start fresh" is always a safe answer. The handoff lands in the same `*-session.md` location idle-tax surfaces and `/resume-session` loads
+- **Usage Report** is the measurement layer under all of them. It reads the transcripts Claude Code already writes and tells you which of these costs is actually yours — per turn, per session, desktop vs terminal, this week vs last — so you fix the expensive habit first, not the famous one
 
 The common thread: every helper makes an invisible cost visible at the moment it happens, so you have a real choice.
+
+### The cache TTL changed (September 2026)
+
+The idle-tax, idle-autosave and delegation-cost helpers were written against Anthropic's 5-minute prompt-cache TTL. Claude Code sessions now normally run on the **1-hour** TTL (written at 2× input price instead of 1.25×, so a cold resume is **20×** a warm hit rather than 12.5×), and drop back to 5 minutes only in usage overage. All three now read the TTL in effect from the session transcript instead of assuming one (delegation-cost also measures from the parent's last API call rather than your last prompt — the combination that had turned a 17-minute agent into a false "cache went cold"); the blog posts still describe the 5-minute world. If you installed before September 2026, re-run the three installers.
+
+And one model-level mover: **Claude Fable 5.1** prices cache *reads* at 0.025× base input instead of the standard 0.1×. Warm turns on that model are 4× cheaper, cold writes are unchanged, and the cold-vs-warm ratio stretches to ~80× — idle-tax and usage-report both price reads per model.
+
+### Hook output contract (fixed September 2026)
+
+Every warning hook now emits its message through the documented channels — `hookSpecificOutput.additionalContext` for Claude and `systemMessage` for you (shown in the terminal *and* the Claude Code desktop app). The earlier top-level `additionalContext` field was never injected by Claude Code, which means the v1 warnings were reaching nobody; the `[idle-tax] …` lines you may have seen in a terminal were stderr traces, not the warning. Re-install to get the fixed hooks.
 
 ## For organizations
 
@@ -398,13 +418,15 @@ Below is what each helper contains. The architecture follows the same pattern as
 - Behavior: Measures the size of each agent result. When a single result exceeds threshold (default 5,000 tokens, estimated at ~4 chars/token):
   - Warns: "That agent returned ~N tokens now sitting in context. Consider tighter prompt constraints, writing findings to a file, or splitting the session after synthesizing."
   - Does NOT block — purely informational
-- Tracks cumulative delegation results per session. Warns when cumulative total crosses higher thresholds (20K, 50K, 100K).
+- Tracks cumulative delegation results per session and prices them for the session's model: warns when the projected warm carrying cost over the next 20 API calls crosses $0.25 / $1 / $3, with advice routed by the results' share of the cached prefix. Dollar thresholds because the same tokens cost 4× less to carry on Fable 5.1 (0.025× reads) than on Fable 5; falls back to token thresholds only when the transcript cannot be read. The v1 "3 agents is a lot of delegation weight" warning is gone — count is not cost.
 - Also logs per-agent result sizes for the `/delegation-report` slash command.
+- Cache cooling: if the agent ran longer than the parent's cache TTL (or within the lead time of it), warns with the priced re-write. TTL (1-hour vs 5-minute), cached context size and model come from the transcript's last main-thread assistant message — the dispatch — not from a hardcoded threshold or your last prompt time. One warning per dispatch.
 
 **Slash command: `/delegation-report`**
-- Shows per-agent result sizes and estimated carrying cost for the session
-- Calculates warm-cache and blended-rate carrying costs
-- Makes the tax visible so you can decide whether to constrain future agent output or split
+- Shows per-agent result sizes and what carrying them costs this session, computed locally by `delegation_report.py` (zero Claude tokens)
+- Prices from the session's real model and cache TTL, read from the transcript like the hooks do: warm read per API call over a horizon, and these results' share of a cold re-write
+- Says outright when delegation is *not* the tax — e.g. 4% of the prefix at a third of a cent per call on Fable 5.1 — so you constrain agents when it matters and not otherwise
+- Closes with the same session priced under Opus 5 / Opus 4.8 / Fable 5 / Sonnet 5 delegators. The finding: on Fable 5.1 the warm delegation tax is half of Opus's and the cold re-write of the prefix is double, so a cache lapse is 4× as punishing relative to warm — the lever moved from trimming agent results to keeping the cache warm
 
 **Settings snippet:**
 ```json
@@ -503,3 +525,51 @@ Below is what each helper contains. The architecture follows the same pattern as
 ```
 
 **Joyus tie-in:** the auto-state file shape is the local-single-user version of the Joyus session-telemetry spec. Aggregating across a team gives you "where is each developer's work sitting right now?" without any platform instrumentation beyond a cron that scrapes `~/.claude/sessions/auto-state/*.json`.
+
+---
+
+### Idle Autosave
+
+**Problem:** the idle-tax warning arrives after the cache has already died, and the cheap option it offers — start fresh — needs a handoff you didn't write.
+
+**Hooks: `stop-idle-autosave.sh` (Stop) + `idle-autosave-worker.sh` (detached) + `sessionend-idle-autosave.sh` (SessionEnd)**
+- Behavior: after every turn a detached watcher is (re)armed. It reads the cache TTL the session is on from the transcript and waits for `TTL − 15 min` of quiet (45 min on the 1-hour TTL, 4 min on the 5-minute one). Then it extracts the conversation tail and asks a minimal headless call — `haiku`, `--effort low`, no tools, no MCP, no skills, no user settings, one-line system prompt — for a structured handoff (~$0.002 measured; the same call with the default system prompt loaded cost $0.18). Auth-error answers are detected and the call retried without a stale `ANTHROPIC_API_KEY`; any failure falls back to a deterministic excerpt.
+- Writes `~/.claude/sessions/<date>-idle-autosave-<sid>-session.md`; the idle-tax warning links to it by session id.
+
+See [idle-autosave/README.md](idle-autosave/) for config and edge cases.
+
+---
+
+### Usage Report
+
+**Problem:** every other helper warns at the moment a cost happens; none of them answers *which* cost is actually yours. The first run of this report on the author's transcripts overturned the working theory — desktop-app sessions cost ~2× terminal sessions per turn, but not because delegation was missing (it was equal in both); because desktop turns made twice as many full-context API calls and resumed cold contexts twice as often.
+
+**Scripts: `usage_scan.py` + `usage_report.py`** — pure stdlib, read-only over `~/.claude/projects/**/*.jsonl`, zero Claude tokens.
+- Compares interactive desktop vs terminal sessions per human turn and per session: dollars (API list rates), API calls per turn, prompt tokens per call, output per turn.
+- Decomposes main-thread spend into cache reads / cache writes / output; prices resumes after >60 minutes idle; audits delegation (Agent calls per turn, explicit `model` params, subagent dollars on opus/fable); charges agent-team teammates to the session that spawned them; tallies headless `claude -p` jobs by spawner; shows week-over-week; calibrates against Claude Code's own `totalCostUSD` where present.
+- Ends with a "levers" list that only names what the numbers support.
+
+**Hook: `sessionstart-usage-report.sh`** (SessionStart) — if the newest report is older than 7 days, regenerates it in a detached background process (lock-protected) and notifies on macOS.
+
+**Slash command: `/usage-report [days]`** — runs it now and prints the report inline.
+
+**Settings snippet:**
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/usage-report/sessionstart-usage-report.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Joyus tie-in:** the report is the single-user form of fleet cost telemetry — the same per-session records, aggregated across an org, answer "which teams pay the idle tax, which teams delegate to opus, whose plugins run 800 headless jobs a month."

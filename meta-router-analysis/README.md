@@ -66,7 +66,7 @@ Thresholds used:
 
 - **Rot zone** — 300,000 tokens (`just-one-more-turn/` default).
 - **Subagent-isolation warning** — 50 unique files (`subagent-isolation/` default).
-- **Cache TTL** — 300 seconds (`idle-tax/`, Anthropic prompt cache).
+- **Cache TTL** — 300 seconds (`idle-tax/`, Anthropic prompt cache). *Update 2026-09-01: Claude Code sessions now normally run on the 1-hour TTL (see `idle-tax/README.md`). The per-event volatile-token math below is unchanged; only the frequency of cold-cache events drops.*
 - **Effort pin** — `CLAUDE_CODE_EFFORT_LEVEL=high` (`effort-control/`).
 
 ## How to read these files

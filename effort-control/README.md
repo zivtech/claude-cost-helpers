@@ -4,7 +4,9 @@ Companion code for *The Economics of Claude Code, Part 6: The Effort Tax* (or as
 
 ## What it does
 
-Pins Claude Code's effort level to `high` via the `CLAUDE_CODE_EFFORT_LEVEL` environment variable so Opus 4.7 does not silently spend `xhigh` tokens on every turn. Adds a SessionStart banner so you know the pin is active, and a `/deep` slash command for one-shot escalation when a task genuinely needs deeper reasoning.
+Pins Claude Code's effort level to `high` via the `CLAUDE_CODE_EFFORT_LEVEL` environment variable so the model does not silently spend `xhigh` tokens on every turn. `xhigh` became the default with Opus 4.7 and stayed the default for the Claude 5 family (Fable 5, Opus 5, Sonnet 5). Adds a SessionStart banner so you know the pin is active, and a `/deep` slash command for one-shot escalation when a task genuinely needs deeper reasoning.
+
+Effort matters more than its name suggests: besides thinking tokens, it changes how many tool calls a turn makes — and in agentic sessions the number of full-context API calls per turn is the dominant cost term (see the usage-report helper).
 
 ## Why this exists
 
@@ -94,9 +96,13 @@ If the pin isn't active for some reason (e.g. you have `ANTHROPIC_MODEL` set to 
 
 ## How the SessionStart hook works
 
-The hook fires once per new session. It reads `CLAUDE_CODE_EFFORT_LEVEL` from its process environment (Claude Code injects settings-file env vars into hook processes). It emits a one-line banner via the hook's `additionalContext` field so Claude sees it in the first turn and can surface it to you if relevant.
+The hook fires once per new session. It reads `CLAUDE_CODE_EFFORT_LEVEL` from its process environment (Claude Code injects settings-file env vars into hook processes). It emits the banner twice: as `hookSpecificOutput.additionalContext` (the documented SessionStart channel, so Claude sees it) and as `systemMessage` (so *you* see it — in the terminal and in the desktop app). The pre-September-2026 version used a top-level `additionalContext` field, which Claude Code never injected; the banner was reaching nobody.
 
 If the env var is missing or set to `xhigh`/`max`/`auto`, the hook emits a different warning instead — flagging that the pin is off and you are back on the default.
+
+### The pin is inherited — including by things you didn't mean to pin
+
+`env.CLAUDE_CODE_EFFORT_LEVEL` is exported into every process Claude Code starts from your settings: subagents, agent-team teammates, and headless `claude -p` jobs run by other plugins (memory extractors, classifiers, summarizers). A `max` pin therefore runs your background classifiers at `max` too. On the author's machine that was 800+ headless jobs a month spending ~8K output tokens each on "is there a signal in this transcript?" The banner now says so when it sees `xhigh`/`max`. If a subagent or job genuinely needs a different level, pass `--effort` on that call (the idle-autosave worker does exactly this).
 
 The hook is **informational, not blocking**. Your session always starts normally.
 

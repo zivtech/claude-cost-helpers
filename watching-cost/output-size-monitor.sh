@@ -134,11 +134,15 @@ done
 # Output the result
 if [ -n "$WARNINGS" ]; then
     # Escape for JSON: replace backslashes, double-quotes, and newlines
-    WARNINGS_JSON=$(echo -e "$WARNINGS" | python3 -c "
+    # Claude gets the full text via hookSpecificOutput (the documented channel
+    # for PostToolUse); you get the first line via systemMessage.
+    echo -e "$WARNINGS" | python3 -c "
 import sys, json
-print(json.dumps(sys.stdin.read().rstrip()))
-" 2>/dev/null)
-    echo "{\"continue\": true, \"additionalContext\": ${WARNINGS_JSON}}"
+text = sys.stdin.read().rstrip()
+print(json.dumps({'continue': True, 'suppressOutput': True,
+                  'systemMessage': 'watching-cost: ' + text.splitlines()[0][:200],
+                  'hookSpecificOutput': {'hookEventName': 'PostToolUse', 'additionalContext': text}}))
+" 2>/dev/null || echo '{"continue": true, "suppressOutput": true}'
 else
     echo '{"continue": true, "suppressOutput": true}'
 fi

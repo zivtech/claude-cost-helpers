@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/usage-report/sessionstart-usage-report.sh",
+            "timeout": 10,
+            "statusMessage": "Checking usage-report freshness..."
+          }
+        ]
+      }
+    ]
+  }
+}
