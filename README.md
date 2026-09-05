@@ -22,7 +22,7 @@ This repository now includes a **limited Codex helper lane** under [codex-helper
 | [Subagent Isolation](subagent-isolation/) | Part 3: The agent that read 200 files | `PostToolUse` on Read/Glob/Grep — warns when file count exceeds threshold | `/delegate` | **Built + tested** |
 | [Compact Gamble](compact-gamble/) | Part 4: The compact gamble | `PreCompact` — saves a marker and urges context preservation before compaction | `/safe-compact` | **Built + tested** |
 | [Watching Cost](watching-cost/) | Part 5: The watching cost | `PostToolUse` (all) — warns when tool output exceeds token threshold | `/to-file` | **Built + tested** |
-| [Delegation Cost](delegation-cost/) | Part 6: The delegation tax | `PostToolUse` on Agent — warns when agent results exceed token threshold | `/delegation-report` | **Built + tested** |
+| [Delegation Cost](delegation-cost/) | Part 6: The delegation tax | `PostToolUse` on Agent — warns when agent results exceed token thresholds, and when an agent ran long enough that the parent's prompt cache expired (TTL, context size and model read from the transcript; priced) | `/delegation-report` | **Built + tested** (v2, TTL-aware) |
 | [Effort Control](effort-control/) | Part 1 addendum: 4.7's `xhigh` default | `SessionStart` — confirms `CLAUDE_CODE_EFFORT_LEVEL` pin is active | `/deep` | **Built + tested** |
 | [Auto-Persist](auto-persist/) | Part 1 addendum: Stop-hook session state | `Stop` — writes minimal environmental state after every turn | `/last-state` | **Built + tested** |
 | [Idle Autosave](idle-autosave/) | Follow-up post (in prep) | `Stop` — arms a detached watcher; after a TTL-aware window of quiet (45 min on the 1-hour TTL, 4 min on the 5-minute one) it writes a real handoff note via a minimal headless haiku call (~$0.002). `SessionEnd` — cancels the watcher and cleans state when a session ends | *(none — `/resume-session` is the consumer)* | **Built + tested** (v2, TTL-aware) |
@@ -214,7 +214,7 @@ The common thread: every helper makes an invisible cost visible at the moment it
 
 ### The cache TTL changed (September 2026)
 
-The idle-tax and idle-autosave helpers were written against Anthropic's 5-minute prompt-cache TTL. Claude Code sessions now normally run on the **1-hour** TTL (written at 2× input price instead of 1.25×, so a cold resume is **20×** a warm hit rather than 12.5×), and drop back to 5 minutes only in usage overage. Both helpers now read the TTL in effect from the session transcript instead of assuming one; the blog posts still describe the 5-minute world. If you installed before September 2026, re-run the two installers.
+The idle-tax, idle-autosave and delegation-cost helpers were written against Anthropic's 5-minute prompt-cache TTL. Claude Code sessions now normally run on the **1-hour** TTL (written at 2× input price instead of 1.25×, so a cold resume is **20×** a warm hit rather than 12.5×), and drop back to 5 minutes only in usage overage. All three now read the TTL in effect from the session transcript instead of assuming one (delegation-cost also measures from the parent's last API call rather than your last prompt — the combination that had turned a 17-minute agent into a false "cache went cold"); the blog posts still describe the 5-minute world. If you installed before September 2026, re-run the three installers.
 
 And one model-level mover: **Claude Fable 5.1** prices cache *reads* at 0.025× base input instead of the standard 0.1×. Warm turns on that model are 4× cheaper, cold writes are unchanged, and the cold-vs-warm ratio stretches to ~80× — idle-tax and usage-report both price reads per model.
 
@@ -420,11 +420,12 @@ Below is what each helper contains. The architecture follows the same pattern as
   - Does NOT block — purely informational
 - Tracks cumulative delegation results per session. Warns when cumulative total crosses higher thresholds (20K, 50K, 100K).
 - Also logs per-agent result sizes for the `/delegation-report` slash command.
+- Cache cooling: if the agent ran longer than the parent's cache TTL (or within the lead time of it), warns with the priced re-write. TTL (1-hour vs 5-minute), cached context size and model come from the transcript's last main-thread assistant message — the dispatch — not from a hardcoded threshold or your last prompt time. One warning per dispatch.
 
 **Slash command: `/delegation-report`**
-- Shows per-agent result sizes and estimated carrying cost for the session
-- Calculates warm-cache and blended-rate carrying costs
-- Makes the tax visible so you can decide whether to constrain future agent output or split
+- Shows per-agent result sizes and what carrying them costs this session, computed locally by `delegation_report.py` (zero Claude tokens)
+- Prices from the session's real model and cache TTL, read from the transcript like the hooks do: warm read per API call over a horizon, and these results' share of a cold re-write
+- Says outright when delegation is *not* the tax — e.g. 4% of the prefix at a third of a cent per call on Fable 5.1 — so you constrain agents when it matters and not otherwise
 
 **Settings snippet:**
 ```json

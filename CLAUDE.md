@@ -52,8 +52,9 @@ Three rules:
 │   ├── hooks/stop-auto-persist.sh  # Stop hook
 │   ├── commands/last-state.md      # /last-state slash command
 │   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
-├── delegation-cost/             # agent result size tracking
+├── delegation-cost/             # agent result size tracking + TTL-aware cache-cooling check
 │   ├── delegation-result-monitor.sh # PostToolUse hook (Agent)
+│   ├── test.sh                      # fixture tests (synthetic transcripts, every cache state)
 │   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
 ├── idle-autosave/               # automatic handoff notes on session idle
 │   ├── hooks/stop-idle-autosave.sh        # Stop hook — arms detached watcher
@@ -103,7 +104,7 @@ Follow the pattern in `idle-tax/`. Checklist:
 | Event | Key fields in stdin JSON |
 |---|---|
 | `UserPromptSubmit` | `session_id`, `transcript_path`, `cwd`, `prompt` |
-| `PostToolUse` | `session_id`, `tool_name`, `tool_input` (object), `tool_response` (string or object) |
+| `PostToolUse` | `session_id`, `transcript_path`, `cwd`, `tool_name`, `tool_input` (object), `tool_response` (string or object) |
 | `PreCompact` | `session_id`, `trigger` ("auto" or "manual") |
 | `SessionStart` | `session_id`, `transcript_path`, `cwd` (+ env vars injected from settings.json `env` block) |
 | `Stop` | `session_id`, `cwd`, `transcript_path` |
@@ -127,6 +128,7 @@ The transcript is the ground truth for cost mechanics: `usage.cache_creation.eph
 ```bash
 # Fixture suites (synthetic transcripts, every state, no live session):
 ./idle-tax/test.sh
+./delegation-cost/test.sh
 ./usage-report/test.sh
 
 # One-off: run any hook against a real transcript
