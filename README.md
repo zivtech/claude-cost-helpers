@@ -418,7 +418,7 @@ Below is what each helper contains. The architecture follows the same pattern as
 - Behavior: Measures the size of each agent result. When a single result exceeds threshold (default 5,000 tokens, estimated at ~4 chars/token):
   - Warns: "That agent returned ~N tokens now sitting in context. Consider tighter prompt constraints, writing findings to a file, or splitting the session after synthesizing."
   - Does NOT block — purely informational
-- Tracks cumulative delegation results per session. Warns when cumulative total crosses higher thresholds (20K, 50K, 100K).
+- Tracks cumulative delegation results per session and prices them for the session's model: warns when the projected warm carrying cost over the next 20 API calls crosses $0.25 / $1 / $3, with advice routed by the results' share of the cached prefix. Dollar thresholds because the same tokens cost 4× less to carry on Fable 5.1 (0.025× reads) than on Fable 5; falls back to token thresholds only when the transcript cannot be read. The v1 "3 agents is a lot of delegation weight" warning is gone — count is not cost.
 - Also logs per-agent result sizes for the `/delegation-report` slash command.
 - Cache cooling: if the agent ran longer than the parent's cache TTL (or within the lead time of it), warns with the priced re-write. TTL (1-hour vs 5-minute), cached context size and model come from the transcript's last main-thread assistant message — the dispatch — not from a hardcoded threshold or your last prompt time. One warning per dispatch.
 
@@ -426,6 +426,7 @@ Below is what each helper contains. The architecture follows the same pattern as
 - Shows per-agent result sizes and what carrying them costs this session, computed locally by `delegation_report.py` (zero Claude tokens)
 - Prices from the session's real model and cache TTL, read from the transcript like the hooks do: warm read per API call over a horizon, and these results' share of a cold re-write
 - Says outright when delegation is *not* the tax — e.g. 4% of the prefix at a third of a cent per call on Fable 5.1 — so you constrain agents when it matters and not otherwise
+- Closes with the same session priced under Opus 5 / Opus 4.8 / Fable 5 / Sonnet 5 delegators. The finding: on Fable 5.1 the warm delegation tax is half of Opus's and the cold re-write of the prefix is double, so a cache lapse is 4× as punishing relative to warm — the lever moved from trimming agent results to keeping the cache warm
 
 **Settings snippet:**
 ```json

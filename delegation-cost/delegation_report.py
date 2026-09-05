@@ -12,9 +12,17 @@ Backs the /delegation-report slash command. Reads two local files:
       model, the cache TTL in effect (usage.cache_creation.ephemeral_1h_input_tokens
       > 0 -> 1-hour, else 5-minute) and the cached prefix size
 
-Pricing (Anthropic list, September 2026): input $/MTok by model family; warm
-cache reads at 0.1x input (0.025x on Claude Fable/Mythos 5.1); cache writes at
-2x input on the 1-hour TTL, 1.25x on the 5-minute one. Same table as the hooks.
+Pricing (Anthropic list, 2026-06; keep identical across helpers, enforced by
+../pricing-parity.sh): input $/MTok by model family; warm cache reads at 0.1x
+input (0.025x on Claude Fable/Mythos 5.1); cache writes at 2x input on the
+1-hour TTL, 1.25x on the 5-minute one.
+
+The report closes with the same session priced under other delegators (Opus 5,
+Opus 4.8, Fable 5, Sonnet 5). Opus 4.7+ and Fable share a tokenizer, so the
+counts carry over; Sonnet/Haiku counts are approximate. The finding it exists
+to show: on Fable 5.1 the warm delegation tax is half of Opus's and the cold
+re-write of the prefix is double, so a cache lapse is 4x as punishing relative
+to warm — the lever moved from trimming agent results to keeping the cache warm.
 
 v1 of the slash command asked Claude to multiply by a hardcoded $1.50/MTok
 "warm" and a made-up $5/MTok "blended" rate: Opus-4-era numbers, wrong by 4x
@@ -36,6 +44,8 @@ PRICE_IN = [  # $/M input tokens, matched by substring, first hit wins
     ("sonnet-5", 2.0), ("sonnet", 3.0), ("haiku", 1.0),
 ]
 BIG_RESULT = 5000  # tokens; matches the hook's per-result threshold
+COMPARE = ["claude-fable-5-1", "claude-fable-5", "claude-opus-5", "claude-opus-4-8", "claude-sonnet-5"]
+OPUS = "claude-opus-5"  # the comparison baseline; Opus 4.8 prices identically
 
 
 def price_for(model):
@@ -100,6 +110,55 @@ def money(x):
     if x >= 0.01:
         return f"${x:.3f}"
     return f"${x:.4f}"
+
+
+def fmt_ratio(r):
+    return f"{r:g}x"
+
+
+def comparison(model, total, ctx, ttl, ttl_label, per_call):
+    """Same results, same prefix, same TTL, priced under other delegators."""
+    wm = 2.0 if ttl >= 3600 else 1.25
+    out = ["", "### Same session under another delegator", ""]
+    out.append(f"Same ~{fmt_tokens(total)} tokens of results"
+               + (f", same ~{fmt_tokens(ctx)}-token prefix" if ctx else "")
+               + f", same {ttl_label} TTL, list prices. Opus 4.7+ and Fable share a tokenizer, so the counts "
+               "carry over; Sonnet/Haiku counts are approximate.")
+    out.append("")
+    out.append("| Delegator | Warm read $/MTok | These results, warm, per call | Cold re-write of the prefix | Cold vs warm |")
+    out.append("|---|---|---|---|---|")
+    for m in [model] + [m for m in COMPARE if m != model]:
+        mp, mr = price_for(m), read_mult(m)
+        tag = " (this session)" if m == model else ""
+        cold_m = money(ctx * mp * wm / 1e6) if ctx else "n/a"
+        out.append(f"| {m}{tag} | ${mp*mr:.2f} | {money(total * mp * mr / 1e6)} | {cold_m} | {fmt_ratio(wm/mr)} |")
+    out.append("")
+    opus_pc = total * price_for(OPUS) * read_mult(OPUS) / 1e6
+    r_warm = per_call / opus_pc
+    p, rm = price_for(model), read_mult(model)
+    if abs(r_warm - 1) < 0.01 and abs(p - price_for(OPUS)) < 0.01:
+        f51 = (price_for("claude-fable-5-1") * read_mult("claude-fable-5-1")) / (price_for(OPUS) * read_mult(OPUS))
+        out.append(f"**Finding:** this session is at Opus pricing. A Fable 5.1 delegator would carry these results at "
+                   f"{fmt_ratio(f51)} the warm cost per call and re-write the prefix at "
+                   f"{fmt_ratio(price_for('claude-fable-5-1') / price_for(OPUS))} the cold cost: cheaper to carry, "
+                   "dearer to let lapse.")
+        return out
+    line = (f"**Finding:** against an Opus 5 or Opus 4.8 delegator, {model} carries these results at "
+            f"{fmt_ratio(r_warm)} the warm cost per call")
+    if ctx:
+        cold_all = ctx * p * wm / 1e6
+        opus_cold = ctx * price_for(OPUS) * wm / 1e6
+        r_cold = cold_all / opus_cold
+        line += (f" and re-writes the prefix at {fmt_ratio(r_cold)} the cold cost. One cache lapse here costs as much as "
+                 f"{cold_all / per_call:,.0f} API calls of carrying these results warm (Opus: {opus_cold / opus_pc:,.0f}).")
+        rel = r_cold / r_warm
+        if rel > 1.05:
+            line += (f" Relative to its own warm rate, a cache lapse on {model} is {fmt_ratio(rel)} as punishing as on "
+                     "Opus: the lever moved from trimming agent results to keeping the cache warm.")
+    else:
+        line += "."
+    out.append(line)
+    return out
 
 
 def read_results(path):
@@ -215,6 +274,7 @@ def main():
     else:
         out.append("**Verdict:** moderate. Results over 5K tokens benefit most from 'report in under 200 words' "
                    "or writing findings to a file and returning a summary.")
+    out.extend(comparison(model, total, ctx, ttl, ttl_label, per_call))
     print("\n".join(out))
     return 0
 

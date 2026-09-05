@@ -214,5 +214,63 @@ rcheck "report: no transcript -> no dollar figures" "$out" '!\$[0-9]'
 out=$(python3 "$REPORT" --state-dir "$sdir" --session "$SID" --transcript "$WORK/none.jsonl" --model claude-sonnet-5 --ttl 3600 2>&1)
 rcheck "report: --model/--ttl override prices without a transcript" "$out" 'claude-sonnet-5, 1-hour TTL.*\$0\.012 per API call.*these results re-write for \$0\.24, 20x their warm read'
 
+# --- Cumulative: dollar-gated, priced for the model; the same tokens fire later on Fable 5.1. ---
+cum_run() {  # cum_run <home> <transcript|""> <chars> -> hook stdout (state accumulates in <home>)
+    payload "$2" "$3" | HOME="$1" bash "$HOOK" 2>/dev/null
+}
+home="$WORK/home-cum5"; mkdir -p "$home/.claude/.session-state"
+make_transcript "$T" 60 1h 300000 claude-fable-5
+o1=$(cum_run "$home" "$T" 40000); o2=$(cum_run "$home" "$T" 40000); o3=$(cum_run "$home" "$T" 40000)
+check "cumulative (fable-5): 10K tokens -> \$0.20 over 20 calls, under \$0.25, quiet" "$o1" '!Delegation results:'
+check "cumulative (fable-5): 20K tokens -> \$0.40 over 20 calls, priced line" "$o2" 'Delegation results: ~20K tokens from 2 agents, 7% of the ~300K-token prefix\. Carrying them costs ~\$0\.020 per API call on claude-fable-5 \(warm\), ~\$0\.40 over the next 20 calls; a cold re-write of them is \$0\.40\.'
+check "cumulative (fable-5): small share -> advice points at the rest of the prefix" "$o2" 'the other 93% of the prefix is the bigger lever'
+check "cumulative (fable-5): \$0.25 fired once -> 30K tokens (\$0.60) quiet" "$o3" '!Delegation results:'
+check "no swarm warning at 3 agents" "$o3" '!agents have returned results'
+check "per-result carries its own warm price" "$o3" 'That agent returned ~10K tokens \(~\$0\.010 per API call on claude-fable-5, warm\)'
+
+home="$WORK/home-cum51"; mkdir -p "$home/.claude/.session-state"
+make_transcript "$T" 60 1h 300000 claude-fable-5-1
+for i in 1 2 3 4; do o=$(cum_run "$home" "$T" 48000); done
+check "cumulative (fable-5-1): 48K tokens -> \$0.24 at 0.025x reads, still quiet (20K fired on fable-5)" "$o" '!Delegation results:'
+o=$(cum_run "$home" "$T" 48000)
+check "cumulative (fable-5-1): 60K tokens -> \$0.30 over 20 calls, fires with 5.1 numbers" "$o" 'Delegation results: ~60K tokens from 5 agents, 20% of the ~300K-token prefix\. Carrying them costs ~\$0\.015 per API call on claude-fable-5-1 \(warm\), ~\$0\.30 over the next 20 calls; a cold re-write of them is \$1\.20\.'
+
+home="$WORK/home-share"; mkdir -p "$home/.claude/.session-state"
+make_transcript "$T" 60 1h 60000 claude-opus-5
+o=$(cum_run "$home" "$T" 40000); o=$(cum_run "$home" "$T" 40000); o=$(cum_run "$home" "$T" 40000)
+check "cumulative (opus-5, 60K prefix): 30K = 50% share -> 'leading share' advice" "$o" 'Delegation results: ~30K tokens from 3 agents, 50% of the ~60K-token prefix.*leading share of what every call re-reads'
+
+home="$WORK/home-big"; mkdir -p "$home/.claude/.session-state"
+make_transcript "$T" 60 1h 300000 claude-fable-5
+o=$(cum_run "$home" "$T" 800000)
+check "800K-char result (stdin, not env) -> one result crossing all thresholds -> one message" "$o" 'Delegation results: ~200K tokens from 1 agent, .*~\$4\.00 over the next 20 calls'
+o=$(cum_run "$home" "$T" 400)
+check "all thresholds marked -> next result quiet" "$o" '!Delegation results:'
+
+o=$(cum_run "$WORK/home-big" "$T" 40000 CLAUDE_DELEGATION_COST_THRESHOLDS=10)
+home="$WORK/home-env"; mkdir -p "$home/.claude/.session-state"
+o=$(payload "$T" 40000 | HOME="$home" CLAUDE_DELEGATION_COST_THRESHOLDS=0.05 CLAUDE_DELEGATION_HORIZON=100 bash "$HOOK" 2>/dev/null)
+check "env: COST_THRESHOLDS=0.05, HORIZON=100 -> 10K tokens fires (\$1.00 over 100 calls)" "$o" 'Delegation results: ~10K tokens from 1 agent.*~\$1\.00 over the next 100 calls'
+
+home="$WORK/home-unp"; mkdir -p "$home/.claude/.session-state"
+o=$(payload "" 40000 | HOME="$home" bash "$HOOK" 2>/dev/null); o=$(payload "" 40000 | HOME="$home" bash "$HOOK" 2>/dev/null)
+check "cumulative unpriced (no transcript): 20K tokens -> token-threshold fallback" "$o" 'Delegation results: ~20K tokens from 2 agents \(unpriced: no transcript'
+check "cumulative unpriced: no dollar claims" "$o" '!\$[0-9]'
+
+# --- /delegation-report: same session under another delegator. ---
+printf '3000\t14:32:10\n8000\t14:35:41\n2000\t14:41:02\n' > "$sdir/$SID.delegation-agents"
+make_transcript "$T" 60 1h 300000 claude-fable-5-1
+out=$(python3 "$REPORT" --state-dir "$sdir" --session "$SID" --transcript "$T" 2>&1)
+rcheck "compare: this session first, then Opus 5 and 4.8 rows" "$out" 'claude-fable-5-1 \(this session\) \| \$0\.25 \| \$0\.003[23] \| \$6\.00 \| 80x.*claude-opus-5 \| \$0\.50 \| \$0\.0065 \| \$3\.00 \| 20x.*claude-opus-4-8 \| \$0\.50 \| \$0\.0065 \| \$3\.00 \| 20x'
+rcheck "compare: finding — 0.5x warm, 2x cold vs Opus" "$out" 'Finding:\*\* against an Opus 5 or Opus 4.8 delegator, claude-fable-5-1 carries these results at 0\.5x the warm cost per call and re-writes the prefix at 2x the cold cost'
+rcheck "compare: one lapse = ~1,846 warm calls here vs ~462 on Opus" "$out" 'One cache lapse here costs as much as 1,8[0-9][0-9] API calls of carrying these results warm \(Opus: 46[0-9]\)'
+rcheck "compare: relative penalty 4x, lever moved" "$out" 'a cache lapse on claude-fable-5-1 is 4x as punishing as on Opus: the lever moved from trimming agent results to keeping the cache warm'
+rcheck "compare: tokenizer caveat present" "$out" 'Opus 4.7\+ and Fable share a tokenizer'
+make_transcript "$T" 60 1h 300000 claude-opus-5
+out=$(python3 "$REPORT" --state-dir "$sdir" --session "$SID" --transcript "$T" 2>&1)
+rcheck "compare: on Opus -> finding describes the move to Fable 5.1 (0.5x warm, 2x cold)" "$out" 'Finding:\*\* this session is at Opus pricing\. A Fable 5.1 delegator would carry these results at 0\.5x the warm cost per call and re-write the prefix at 2x the cold cost'
+out=$(python3 "$REPORT" --state-dir "$sdir" --session "$SID" --transcript "$WORK/none.jsonl" --model claude-sonnet-5 --ttl 3600 2>&1)
+rcheck "compare: no prefix known -> warm comparison only, cold n/a" "$out" 'claude-sonnet-5 \(this session\) \| \$0\.20 \| \$0\.0026 \| n/a \| 20x.*carries these results at 0\.4x the warm cost per call\.'
+
 echo "----"; echo "passed $PASS, failed $FAIL"
 [ "$FAIL" -eq 0 ]

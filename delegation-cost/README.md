@@ -9,7 +9,7 @@ Tracks how much subagent result data is accumulating in your parent session's co
 This hook fires after every `Agent` tool use, measures the result size, accumulates a running estimate per session, and surfaces warnings at three levels:
 
 - **Per-result**: when a single agent returns more than ~5,000 tokens
-- **Cumulative**: escalating warnings at 20K, 50K, and 100K tokens of accumulated agent results
+- **Cumulative**: when the projected warm carrying cost of *all* agent results over the next 20 API calls crosses $0.25, then $1, then $3. Dollar thresholds, not token thresholds, because the same tokens cost 4× less to carry on Fable 5.1 (0.025× reads) than on Fable 5 (0.1×): a token threshold that is right for one is noise or silence on the other. The advice is routed by the results' share of the cached prefix.
 - **Cache cooling**: when the agent ran long enough that the parent's prompt cache expired (or came within the lead time of expiring). A foreground agent blocks the parent, so the parent's cache ages for the whole run; if the run outlasts the TTL, the call that consumes the result re-writes the entire prefix. The TTL in effect (1-hour or 5-minute), the cached context size and the model are read from the session transcript, so the dollar figure is your figure.
 
 It also installs one slash command:
@@ -56,22 +56,28 @@ reprocesses it. Consider: (1) tighter prompt constraints ('report in under
 (3) splitting the session after synthesizing.
 ```
 
-**Cumulative warning** (accumulated across multiple agent results):
+**Cumulative warning** (priced for the session's model; fires once per dollar threshold):
 
 ```
-Delegation results in this session: ~20K tokens. The tax is building —
-every turn reprocesses all of it. Consider tighter agent prompts going forward.
+Delegation results: ~20K tokens from 2 agents, 7% of the ~300K-token prefix.
+Carrying them costs ~$0.020 per API call on claude-fable-5 (warm), ~$0.40 over
+the next 20 calls; a cold re-write of them is $0.40. Trimming them saves at
+most that; the other 93% of the prefix is the bigger lever (/save-session or
+/split for context size).
 ```
 
-```
-Delegation results: ~50K tokens. The carrying cost is significant. Consider
-`/split` or writing future agent results to files instead of returning inline.
-```
+The same 20K tokens on Fable 5.1 cost $0.005 per call and stay silent until
+~60K. When the results are a quarter or more of the prefix the advice flips to
+"cap the next agents' output or have them write findings to a file". Without a
+transcript to read the model from, the check falls back to token thresholds
+(20K/50K/100K) and says so ("unpriced").
 
-```
-Delegation results: ~100K tokens. The delegation tax exceeds the delegation
-benefit at this point. A fresh session would save real money.
-```
+v1 said "the delegation tax exceeds the delegation benefit" at 100K tokens and
+"a fresh session would save real money" — without computing either. On
+Fable 5.1, 100K tokens of agent results cost $0.025 per call warm. There was
+also a "3 agents is a lot of delegation weight" warning that fired on every
+parallel fan-out regardless of size; it is gone. A message here never claims
+more than its number supports, so when prices change the messages stay true.
 
 **Cache-cooling warning** (the agent outran the parent's prompt cache):
 
@@ -106,11 +112,27 @@ On the 1-hour TTL this warning should be rare: an agent has to run for 45+ minut
 **Cold exposure:** if the cache lapses once (an agent or an idle gap outlasting the 1-hour TTL), the whole prefix re-writes for $6.00; these results' share is $0.26, 80x their warm read (2x input).
 
 **Verdict:** delegation is not your tax here: 4% of the prefix at $0.0032 per call. If this session feels expensive, it is the other 96%: /save-session or /split for context size, not for agent results.
+
+### Same session under another delegator
+
+Same ~13K tokens of results, same ~300K-token prefix, same 1-hour TTL, list prices. Opus 4.7+ and Fable share a tokenizer, so the counts carry over; Sonnet/Haiku counts are approximate.
+
+| Delegator | Warm read $/MTok | These results, warm, per call | Cold re-write of the prefix | Cold vs warm |
+|---|---|---|---|---|
+| claude-fable-5-1 (this session) | $0.25 | $0.0032 | $6.00 | 80x |
+| claude-fable-5 | $1.00 | $0.013 | $6.00 | 20x |
+| claude-opus-5 | $0.50 | $0.0065 | $3.00 | 20x |
+| claude-opus-4-8 | $0.50 | $0.0065 | $3.00 | 20x |
+| claude-sonnet-5 | $0.20 | $0.0026 | $1.20 | 20x |
+
+**Finding:** against an Opus 5 or Opus 4.8 delegator, claude-fable-5-1 carries these results at 0.5x the warm cost per call and re-writes the prefix at 2x the cold cost. One cache lapse here costs as much as 1,846 API calls of carrying these results warm (Opus: 462). Relative to its own warm rate, a cache lapse on claude-fable-5-1 is 4x as punishing as on Opus: the lever moved from trimming agent results to keeping the cache warm.
 ```
+
+That comparison is the point of the report. The blog series was written against Opus-era pricing, where the warm delegation tax was the visible cost. Fable 5.1's cheaper reads and dearer writes move the cost: carrying agent results got cheaper, letting the cache lapse got much more expensive relative to it. Expect this to keep moving as models and prices change; the report recomputes it from the price table every time rather than remembering a conclusion.
 
 v1 of the command had Claude multiply by a hardcoded $1.50/MTok warm rate and a made-up $5/MTok "blended" rate — Opus-4-era numbers computed in-context. On Fable 5.1 the warm rate is $0.25/MTok; on Opus 5 it is $0.50. The report now reads the model and TTL from the transcript and does the arithmetic outside the model.
 
-Each cumulative threshold fires **only once** per session. If both a per-result and a cumulative warning trigger on the same agent return, they are combined into a single message. All warnings are **informational, not blocking** — your work always proceeds.
+Each cost threshold fires **only once** per session (a single huge result that crosses several marks them all and warns once). If a cache-cooling, a per-result and a cumulative warning trigger on the same agent return, they are combined into a single message; the first line is what you see. All warnings are **informational, not blocking** — your work always proceeds.
 
 ## How it works
 
@@ -122,18 +144,20 @@ The hook fires on every `PostToolUse` matching `^Agent$`. It:
 4. Adds the current result's estimate and writes the new total back.
 5. Appends a per-agent entry to `~/.claude/.session-state/<session_id>.delegation-agents` (used by `/delegation-report`).
 6. Checks the per-result threshold.
-7. Checks each cumulative threshold, consulting `~/.claude/.session-state/<session_id>.delegation-warned-at` to ensure each fires only once.
+7. Prices the cumulative total for the session's model (warm read per API call × horizon) and checks the dollar thresholds, consulting `~/.claude/.session-state/<session_id>.delegation-warned-at` so each fires once; advice is routed by the results' share of the cached prefix. Without a model it falls back to token thresholds.
 8. Runs the cache-cooling check: reads the **last main-thread assistant message** in `transcript_path` — the one that dispatched this agent — scanning the file backwards in blocks. Its `usage.cache_creation` breakdown says which TTL is in effect (`ephemeral_1h_input_tokens > 0` → 1-hour, otherwise 5-minute), its token counts give the cached context size, its `model` gives the price, and its timestamp is the parent's last API call. The gap from that timestamp to now is how long the cache has aged. Nothing is hardcoded and nothing depends on another helper's state file; a fresh subagent row is skipped (`isSidechain`). A `<session_id>.delegation-cache-warned` file keeps it to one warning per dispatch row.
 9. Outputs hook-contract JSON: warnings reach Claude via `hookSpecificOutput.additionalContext` (the documented `PostToolUse` channel) and reach you via a one-line `systemMessage`; clean runs emit `suppressOutput: true`.
 
-The hook is designed to be fast — two `python3` calls, a tail read of the transcript, a few small state files. It should complete well within the 5-second timeout.
+The hook is designed to be fast — one `python3` pass, a tail read of the transcript, a few small state files. It should complete well within the 5-second timeout. The tool response reaches Python on stdin, never through an environment variable or argv, which cap out around 1 MB and would fail silently on a large agent result.
 
 ## Configuration
 
 | Environment variable | Default | What it controls |
 |---|---|---|
 | `CLAUDE_DELEGATION_THRESHOLD` | `5000` | Per-result token threshold. Set lower (e.g. `100`) to test the hook on small agent results. |
-| `CLAUDE_DELEGATION_CUMULATIVE_THRESHOLDS` | `20000,50000,100000` | Comma-separated list of cumulative thresholds. Customize to taste. |
+| `CLAUDE_DELEGATION_COST_THRESHOLDS` | `0.25,1,3` | Dollar thresholds for the cumulative warning: projected warm carrying cost of all agent results over the horizon. Each fires once. |
+| `CLAUDE_DELEGATION_HORIZON` | `20` | API calls the carrying cost is projected over. Every tool call is a call, not just every message. |
+| `CLAUDE_DELEGATION_CUMULATIVE_THRESHOLDS` | `20000,50000,100000` | Unpriced fallback: cumulative *token* thresholds used only when the transcript cannot be read (no model, no TTL). |
 | `CLAUDE_DELEGATION_FILE_THRESHOLD` | `8000` | Per-result size at which the warning switches from "tighten the prompt" to "have the agent write findings to a file". |
 | `CACHE_TTL_SECONDS` | *(detected)* | Force the cache TTL (`3600` or `300`) instead of reading it from the transcript. Same knob as idle-tax. Also the only way the check runs when the hook input has no `transcript_path` (older Claude Code); it then falls back to idle-tax's prompt timestamp, an upper bound on the gap. |
 | `CACHE_WARN_SECONDS` | `900` on the 1-hour TTL, `60` on the 5-minute one | Lead time before TTL expiry at which the softer "came within N of expiring" warning fires. |
@@ -179,7 +203,7 @@ For the full story see [*The Economics of Claude Code, Part 6: The Delegation Ta
 
 ## Provenance
 
-This is a productized version of patterns the author observed while using multi-agent workflows extensively. The threshold numbers (5K per-result, 20K/50K/100K cumulative) are based on observed delegation patterns where carrying cost became the dominant cost factor. They are defaults, not laws — see Configuration above.
+This is a productized version of patterns the author observed while using multi-agent workflows extensively. The per-result threshold (5K tokens) comes from observed delegation patterns. The cumulative thresholds were token counts (20K/50K/100K) until September 2026, when pricing the same tokens on Fable 5.1 showed the "dominant cost factor" claim no longer held; they are now dollar thresholds over a call horizon, so they track the price table instead of a moment in it. Defaults, not laws — see Configuration above.
 
 ## License
 
