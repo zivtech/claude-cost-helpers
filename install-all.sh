@@ -15,7 +15,7 @@ echo ""
 
 FAILED=()
 
-for helper in idle-tax just-one-more-turn subagent-isolation compact-gamble watching-cost delegation-cost effort-control auto-persist idle-autosave usage-report; do
+for helper in idle-tax just-one-more-turn subagent-isolation compact-gamble watching-cost delegation-cost read-cost effort-control auto-persist idle-autosave usage-report; do
     HELPER_DIR="${SCRIPT_DIR}/${helper}"
     if [ -d "$HELPER_DIR" ] && [ -x "${HELPER_DIR}/install.sh" ]; then
         echo "─────────────────────────────────────────────"

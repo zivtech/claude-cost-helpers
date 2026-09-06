@@ -20,6 +20,7 @@ FILES = [
     "delegation-cost/delegation-result-monitor.sh",
     "delegation-cost/agent-prompt-lint.sh",
     "delegation-cost/delegation_report.py",
+    "read-cost/hooks/read-cost-monitor.sh",
     "usage-report/usage_report.py",
 ]
 WRITE_MULTS = ("1.25", "2.0")

@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^Read$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/read-cost/read-cost-monitor.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

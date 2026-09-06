@@ -58,6 +58,11 @@ Three rules:
 │   ├── agent-prompt-lint.sh         # PreToolUse hook (Agent) — output constraint + worker model
 │   ├── test.sh                      # fixture tests (synthetic transcripts, every cache state)
 │   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+├── read-cost/                   # price a file read BEFORE it lands in context
+│   ├── hooks/read-cost-monitor.sh  # PreToolUse hook (Read) — dollar-gated, never blocks
+│   ├── test.sh                     # fixture tests (4 model/TTL combos, gate, bounded reads, caps)
+│   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+│   └── (no slash command on purpose — /delegate and /to-file are the consumers)
 ├── idle-autosave/               # automatic handoff notes on session idle
 │   ├── hooks/stop-idle-autosave.sh        # Stop hook — arms detached watcher
 │   ├── hooks/idle-autosave-worker.sh      # watcher: TTL-aware idle window (45 min on the 1h TTL), minimal haiku handoff (~$0.002)
@@ -127,7 +132,7 @@ The transcript is the ground truth for cost mechanics: `usage.cache_creation.eph
 
 ## Pricing (read before touching a dollar figure)
 
-The price table (input $/MTok by model family, cache-read multiplier, cache-write multipliers) is embedded in five files on purpose — helpers are self-contained and install alone — and `./pricing-parity.sh` fails if any copy drifts: `idle-tax/cache-idle-timer.sh`, `delegation-cost/delegation-result-monitor.sh`, `delegation-cost/agent-prompt-lint.sh`, `delegation-cost/delegation_report.py`, `usage-report/usage_report.py`. A price change is one commit that touches all five plus the expected dollar values in `idle-tax/test.sh`, `delegation-cost/test.sh` and `usage-report/test.sh`, with the parity script and the three suites green. Source of truth for the numbers is the `claude-api` skill (never memory); current table dated 2026-06: Fable 5 / 5.1 $10, Opus 4.8 / 5 $5, Sonnet 5 $2, Haiku 4.5 $1; reads 0.1× (0.025× on Fable / Mythos 5.1); writes 1.25× on the 5-minute TTL, 2× on the 1-hour TTL.
+The price table (input $/MTok by model family, cache-read multiplier, cache-write multipliers) is embedded in six files on purpose — helpers are self-contained and install alone — and `./pricing-parity.sh` fails if any copy drifts: `idle-tax/cache-idle-timer.sh`, `delegation-cost/delegation-result-monitor.sh`, `delegation-cost/agent-prompt-lint.sh`, `delegation-cost/delegation_report.py`, `read-cost/hooks/read-cost-monitor.sh`, `usage-report/usage_report.py`. A price change is one commit that touches all six plus the expected dollar values in `idle-tax/test.sh`, `delegation-cost/test.sh`, `read-cost/test.sh` and `usage-report/test.sh`, with the parity script and the four suites green. Source of truth for the numbers is the `claude-api` skill (never memory); current table dated 2026-06: Fable 5 / 5.1 $10, Opus 4.8 / 5 $5, Sonnet 5 $2, Haiku 4.5 $1; reads 0.1× (0.025× on Fable / Mythos 5.1); writes 1.25× on the 5-minute TTL, 2× on the 1-hour TTL.
 
 Rules that follow from "the math changes and improves over time":
 
@@ -142,6 +147,7 @@ Rules that follow from "the math changes and improves over time":
 # Fixture suites (synthetic transcripts, every state, no live session):
 ./idle-tax/test.sh
 ./delegation-cost/test.sh
+./read-cost/test.sh
 ./usage-report/test.sh
 ./pricing-parity.sh        # price tables identical across helpers
 
