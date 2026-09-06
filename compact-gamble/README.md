@@ -135,4 +135,4 @@ This is a productized version of a hook the author runs in his personal Claude C
 
 ## License
 
-GPL-3.0-or-later. See LICENSE.
+MIT. See LICENSE.

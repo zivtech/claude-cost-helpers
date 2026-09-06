@@ -102,7 +102,10 @@ If the env var is missing or set to `xhigh`/`max`/`auto`, the hook emits a diffe
 
 ### The pin is inherited — including by things you didn't mean to pin
 
-`env.CLAUDE_CODE_EFFORT_LEVEL` is exported into every process Claude Code starts from your settings: subagents, agent-team teammates, and headless `claude -p` jobs run by other plugins (memory extractors, classifiers, summarizers). A `max` pin therefore runs your background classifiers at `max` too. On the author's machine that was 800+ headless jobs a month spending ~8K output tokens each on "is there a signal in this transcript?" The banner now says so when it sees `xhigh`/`max`. If a subagent or job genuinely needs a different level, pass `--effort` on that call (the idle-autosave worker does exactly this).
+`env.CLAUDE_CODE_EFFORT_LEVEL` is exported into every process Claude Code starts from your settings: subagents, agent-team teammates, and headless `claude -p` jobs run by other plugins (memory extractors, classifiers, summarizers). A `max` pin therefore runs your background classifiers at `max` too. On the author's machine that was 800+ headless jobs a month spending ~8K output tokens each on "is there a signal in this transcript?" The banner now says so when it sees `xhigh`/`max`. Overriding it depends on what you are starting:
+
+- **Headless `claude -p` jobs** — set `CLAUDE_CODE_EFFORT_LEVEL` in the child's environment. The env var outranks the `--effort` flag, `/effort`, and agent frontmatter `effort:`, so `--effort` alone loses to the inherited pin. `idle-autosave/hooks/idle-autosave-worker.sh` sets both (`env CLAUDE_CODE_EFFORT_LEVEL="$EFFORT" ... --effort "$EFFORT"`) for exactly this reason.
+- **In-process subagents (the `Agent` tool)** — you cannot. There is no effort parameter on the call, and the env pin outranks agent frontmatter. `model` is the only per-call lever; see `subagent-isolation/commands/delegate.md`. Lowering subagent effort means lowering the pin in `settings.json` and escalating per turn with `/deep`.
 
 The hook is **informational, not blocking**. Your session always starts normally.
 
@@ -145,4 +148,4 @@ Written April 16, 2026, the day Opus 4.7 shipped, after confirming in a live ses
 
 ## License
 
-GPL-3.0-or-later. See LICENSE.
+MIT. See LICENSE.

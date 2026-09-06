@@ -23,6 +23,7 @@ This repository now includes a **limited Codex helper lane** under [codex-helper
 | [Compact Gamble](compact-gamble/) | Part 4: The compact gamble | `PreCompact` — saves a marker and urges context preservation before compaction | `/safe-compact` | **Built + tested** |
 | [Watching Cost](watching-cost/) | Part 5: The watching cost | `PostToolUse` (all) — warns when tool output exceeds token threshold | `/to-file` | **Built + tested** |
 | [Delegation Cost](delegation-cost/) | Part 6: The delegation tax | `PostToolUse` on Agent — warns when agent results exceed token thresholds, and when an agent ran long enough that the parent's prompt cache expired (TTL, context size and model read from the transcript; priced) | `/delegation-report` | **Built + tested** (v2, TTL-aware) |
+| [Read Cost](read-cost/) | Part 7: Reading before you pay | `PreToolUse` on Read — prices a file read *before* it lands in context, gated on dollars (model + TTL from the transcript), never blocks | — (uses `/delegate`, `/to-file`) | **Built + tested** |
 | [Effort Control](effort-control/) | Part 1 addendum: 4.7's `xhigh` default | `SessionStart` — confirms `CLAUDE_CODE_EFFORT_LEVEL` pin is active | `/deep` | **Built + tested** |
 | [Auto-Persist](auto-persist/) | Part 1 addendum: Stop-hook session state | `Stop` — writes minimal environmental state after every turn | `/last-state` | **Built + tested** |
 | [Idle Autosave](idle-autosave/) | Follow-up post (in prep) | `Stop` — arms a detached watcher; after a TTL-aware window of quiet (45 min on the 1-hour TTL, 4 min on the 5-minute one) it writes a real handoff note via a minimal headless haiku call (~$0.002). `SessionEnd` — cancels the watcher and cleans state when a session ends | *(none — `/resume-session` is the consumer)* | **Built + tested** (v2, TTL-aware) |
@@ -89,6 +90,28 @@ If you install all helpers, here's the combined `hooks` block for `~/.claude/set
             "command": "$HOME/.claude/hooks/cost-helpers/just-one-more-turn/context-usage-monitor.sh",
             "timeout": 5,
             "statusMessage": "Checking context usage..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^Read$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/read-cost/read-cost-monitor.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "^Agent$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/delegation-cost/agent-prompt-lint.sh",
+            "timeout": 5
           }
         ]
       }
@@ -235,7 +258,7 @@ The helpers are the sensors. Joyus is the fleet manager.
 
 ## License
 
-GPL-3.0-or-later. See each helper's LICENSE file.
+MIT. See each helper's LICENSE file.
 
 ---
 

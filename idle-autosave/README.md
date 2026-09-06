@@ -147,3 +147,7 @@ for `armed: 1-hour cache TTL detected, saving after 2700s of quiet`.
 
 Then remove the idle-autosave entries from `hooks.Stop` and
 `hooks.SessionEnd` in `~/.claude/settings.json`. Saved handoffs are kept.
+
+## License
+
+MIT. See LICENSE.

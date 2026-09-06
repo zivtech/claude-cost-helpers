@@ -257,6 +257,94 @@ o=$(payload "" 40000 | HOME="$home" bash "$HOOK" 2>/dev/null); o=$(payload "" 40
 check "cumulative unpriced (no transcript): 20K tokens -> token-threshold fallback" "$o" 'Delegation results: ~20K tokens from 2 agents \(unpriced: no transcript'
 check "cumulative unpriced: no dollar claims" "$o" '!\$[0-9]'
 
+# --- agent-prompt-lint.sh (PreToolUse): output constraint + worker model. ---
+LINT="${HERE}/agent-prompt-lint.sh"
+
+# lint_model <path> <model>  -> transcript whose last main-thread assistant used <model>
+lint_model() {
+    python3 - "$1" "$2" <<'PYL'
+import json, sys
+path, model = sys.argv[1], sys.argv[2]
+rows = [
+    {"type": "user", "message": {"role": "user", "content": "go"}},
+    {"type": "assistant", "isSidechain": False,
+     "message": {"model": model, "usage": {"input_tokens": 3, "cache_read_input_tokens": 200000}}},
+    # a later sidechain row must NOT be mistaken for the session model
+    {"type": "assistant", "isSidechain": True, "message": {"model": "claude-haiku-4-5", "usage": {"input_tokens": 1}}},
+]
+with open(path, "w") as fh:
+    for r in rows:
+        fh.write(json.dumps(r, separators=(",", ":")) + "\n")
+PYL
+}
+
+# lint <prompt> [model] [transcript]  -> run the lint hook, echo its stdout
+lint() {
+    python3 - "$1" "${2:-}" "${3:-}" <<'PYL' | bash "$LINT" 2>/dev/null
+import json, sys
+prompt, model, t = sys.argv[1], sys.argv[2], sys.argv[3]
+d = {"session_id": "abcdef12-0000-0000-0000-000000000000", "hook_event_name": "PreToolUse",
+     "tool_name": "Agent", "tool_input": {"prompt": prompt, "subagent_type": "Explore"}}
+if model: d["tool_input"]["model"] = model
+if t: d["transcript_path"] = t
+print(json.dumps(d))
+PYL
+}
+
+L="$WORK/lint.jsonl"
+lint_model "$L" claude-opus-5
+
+# Both warnings fire, and the model line is priced from the table (5.0 / 1.0 = 5x).
+o=$(lint "Scan all test files in the repo and summarize coverage gaps" "" "$L")
+check "lint: unconstrained + modelless -> both warnings" "$o" 'no output-length constraint.*read-heavy agent with no model'
+check "lint: prices the inherited model from the transcript" "$o" 'inherits claude-opus-5 \(\$5/MTok in\) vs Haiku 4.5 \$1 \(5x\)'
+check "lint: computes, never asserts — ratio is in the sentence" "$o" 'the same reading is \$1/M .*5x less'
+check "lint: recommends the one lever that works per call" "$o" 'Pass .model: ..haiku'
+check "lint: names the effort negative space" "$o" 'Agent tool has no effort parameter'
+check "lint: PreToolUse hookSpecificOutput channel" "$o" '"hookEventName": "PreToolUse"'
+check "lint: never blocks" "$o" '"continue": true'
+
+# Sidechain rows must not be read as the session model (haiku would silence it).
+check "lint: ignores sidechain rows when reading session model" "$o" '!Haiku 4.5 reads at'
+
+# Explicit model set -> respect the caller's choice, no model warning.
+o=$(lint "Scan all test files in the repo and summarize coverage gaps" haiku "$L")
+check "lint: model set -> no model warning" "$o" '!read-heavy agent with no model'
+check "lint: model set -> constraint warning still fires" "$o" 'no output-length constraint'
+
+# Both fixed -> silent.
+o=$(lint "Scan all files across the repo. Report in under 200 words." haiku "$L")
+check "lint: constrained + model -> silent" "$o" '"suppressOutput": true'
+check "lint: constrained + model -> no additionalContext" "$o" '!additionalContext'
+
+# Narrow read (no breadth signal) must not fire the model warning — noise control.
+o=$(lint "Read config.py and tell me the port. Keep it brief." "" "$L")
+check "lint: narrow read -> no model warning" "$o" '!read-heavy'
+check "lint: narrow read + brief -> fully silent" "$o" '"suppressOutput": true'
+
+# A haiku session has nothing to downgrade to.
+lint_model "$L" claude-haiku-4-5
+o=$(lint "Scan every directory for TODO comments. Report in under 100 words." "" "$L")
+check "lint: session already on haiku -> no model warning" "$o" '!read-heavy agent with no model'
+
+# Fable 5.1 session: 10.0 / 1.0 = 10x, straight from the shared table.
+lint_model "$L" claude-fable-5-1
+o=$(lint "Scan all test files in the repo. Report in under 50 words." "" "$L")
+check "lint: fable 5.1 -> 10x ratio from the price table" "$o" 'inherits claude-fable-5-1 \(\$10/MTok in\) vs Haiku 4.5 \$1 \(10x\)'
+
+# No transcript -> still warns, but claims no ratio it cannot compute.
+o=$(lint "Search every directory for TODO comments. Report in under 100 words." "" "")
+check "lint: no transcript -> warns with haiku absolute price" "$o" 'Haiku 4.5 reads at \$1/MTok'
+check "lint: no transcript -> no invented ratio" "$o" '!MTok in\) vs'
+
+# Robustness: empty prompt, malformed JSON, missing transcript file.
+o=$(lint "" "" "")
+check "lint: empty prompt -> silent" "$o" '"suppressOutput": true'
+o=$(printf 'not json' | bash "$LINT" 2>/dev/null)
+check "lint: malformed stdin -> fails open with valid JSON" "$o" '"continue": true'
+o=$(lint "Scan all files in the repo" "" "$WORK/does-not-exist.jsonl")
+check "lint: missing transcript file -> falls back, no crash" "$o" 'Haiku 4.5 reads at \$1/MTok'
+
 # --- /delegation-report: same session under another delegator. ---
 printf '3000\t14:32:10\n8000\t14:35:41\n2000\t14:41:02\n' > "$sdir/$SID.delegation-agents"
 make_transcript "$T" 60 1h 300000 claude-fable-5-1

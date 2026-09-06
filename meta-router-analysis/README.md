@@ -84,4 +84,4 @@ Thresholds used:
 
 ## License
 
-GPL-3.0-or-later, matching the rest of this repo. See `../LICENSE` (each helper ships its own copy).
+MIT, matching the rest of this repo. This directory ships no code, so no LICENSE file of its own; each helper ships its own copy.

@@ -38,7 +38,7 @@ A new `UserPromptSubmit` hook that:
 token-optimizer uses **PolyForm Noncommercial 1.0.0** — not a standard OSS license. This means:
 - We can contribute code to their repo (they own the project)
 - But we can't fork and redistribute commercially
-- Our helpers are GPL-3.0 — the PR would be a contribution under their license, not ours
+- Our helpers are MIT — permissive, so contributing our code into their repo is unencumbered (the PR lands under their license, not ours). The constraint runs the other way: PolyForm NC code cannot come back into this MIT repo.
 - **Action**: Review PolyForm NC terms before submitting. If the license is a concern, we can instead document the integration pattern and let them implement it.
 
 ## Files to Create/Modify

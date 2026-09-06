@@ -194,4 +194,4 @@ Written April 16, 2026, during the same session that produced the effort-control
 
 ## License
 
-GPL-3.0-or-later. See LICENSE.
+MIT. See LICENSE.

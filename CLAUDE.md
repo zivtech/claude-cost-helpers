@@ -55,8 +55,14 @@ Three rules:
 │   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
 ├── delegation-cost/             # agent result size tracking + TTL-aware cache-cooling check
 │   ├── delegation-result-monitor.sh # PostToolUse hook (Agent)
+│   ├── agent-prompt-lint.sh         # PreToolUse hook (Agent) — output constraint + worker model
 │   ├── test.sh                      # fixture tests (synthetic transcripts, every cache state)
 │   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+├── read-cost/                   # price a file read BEFORE it lands in context
+│   ├── hooks/read-cost-monitor.sh  # PreToolUse hook (Read) — dollar-gated, never blocks
+│   ├── test.sh                     # fixture tests (4 model/TTL combos, gate, bounded reads, caps)
+│   ├── settings-snippet.json, install.sh, uninstall.sh, README.md, LICENSE
+│   └── (no slash command on purpose — /delegate and /to-file are the consumers)
 ├── idle-autosave/               # automatic handoff notes on session idle
 │   ├── hooks/stop-idle-autosave.sh        # Stop hook — arms detached watcher
 │   ├── hooks/idle-autosave-worker.sh      # watcher: TTL-aware idle window (45 min on the 1h TTL), minimal haiku handoff (~$0.002)
@@ -79,7 +85,7 @@ per-helper `commands/*.md`.
 ## Conventions
 
 - Each helper is self-contained in its own directory
-- Every helper has: a hook script (bash), one or two slash commands (markdown), a settings snippet (JSON), install/uninstall scripts, README, and GPL-3.0-or-later LICENSE
+- Every helper has: a hook script (bash), one or two slash commands (markdown), a settings snippet (JSON), install/uninstall scripts, README, and MIT LICENSE
 - Hook scripts read JSON from stdin (Claude Code hook contract), write JSON to stdout
 - Hooks are informational — they warn but never block (`"continue": true` always)
 - State files go in `~/.claude/.session-state/` keyed by session ID
@@ -97,7 +103,7 @@ Follow the pattern in `idle-tax/`. Checklist:
 4. `install.sh` that copies files + backs up existing + prints settings snippet
 5. `uninstall.sh` that removes files + restores backups
 6. `README.md` explaining the problem, the fix, install, how it works, config, uninstall
-7. `LICENSE` (GPL-3.0-or-later)
+7. `LICENSE` (MIT)
 8. Test all three states (warm/warning/triggered) before shipping
 
 ## Hook contract fields
@@ -126,7 +132,7 @@ The transcript is the ground truth for cost mechanics: `usage.cache_creation.eph
 
 ## Pricing (read before touching a dollar figure)
 
-The price table (input $/MTok by model family, cache-read multiplier, cache-write multipliers) is embedded in four files on purpose — helpers are self-contained and install alone — and `./pricing-parity.sh` fails if any copy drifts: `idle-tax/cache-idle-timer.sh`, `delegation-cost/delegation-result-monitor.sh`, `delegation-cost/delegation_report.py`, `usage-report/usage_report.py`. A price change is one commit that touches all four plus the expected dollar values in `idle-tax/test.sh`, `delegation-cost/test.sh` and `usage-report/test.sh`, with the parity script and the three suites green. Source of truth for the numbers is the `claude-api` skill (never memory); current table dated 2026-06: Fable 5 / 5.1 $10, Opus 4.8 / 5 $5, Sonnet 5 $2, Haiku 4.5 $1; reads 0.1× (0.025× on Fable / Mythos 5.1); writes 1.25× on the 5-minute TTL, 2× on the 1-hour TTL.
+The price table (input $/MTok by model family, cache-read multiplier, cache-write multipliers) is embedded in six files on purpose — helpers are self-contained and install alone — and `./pricing-parity.sh` fails if any copy drifts: `idle-tax/cache-idle-timer.sh`, `delegation-cost/delegation-result-monitor.sh`, `delegation-cost/agent-prompt-lint.sh`, `delegation-cost/delegation_report.py`, `read-cost/hooks/read-cost-monitor.sh`, `usage-report/usage_report.py`. A price change is one commit that touches all six plus the expected dollar values in `idle-tax/test.sh`, `delegation-cost/test.sh`, `read-cost/test.sh` and `usage-report/test.sh`, with the parity script and the four suites green. Source of truth for the numbers is the `claude-api` skill (never memory); current table dated 2026-06: Fable 5 / 5.1 $10, Opus 4.8 / 5 $5, Sonnet 5 $2, Haiku 4.5 $1; reads 0.1× (0.025× on Fable / Mythos 5.1); writes 1.25× on the 5-minute TTL, 2× on the 1-hour TTL.
 
 Rules that follow from "the math changes and improves over time":
 
@@ -141,6 +147,7 @@ Rules that follow from "the math changes and improves over time":
 # Fixture suites (synthetic transcripts, every state, no live session):
 ./idle-tax/test.sh
 ./delegation-cost/test.sh
+./read-cost/test.sh
 ./usage-report/test.sh
 ./pricing-parity.sh        # price tables identical across helpers
 
