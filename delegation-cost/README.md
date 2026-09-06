@@ -12,6 +12,15 @@ This hook fires after every `Agent` tool use, measures the result size, accumula
 - **Cumulative**: when the projected warm carrying cost of *all* agent results over the next 20 API calls crosses $0.25, then $1, then $3. Dollar thresholds, not token thresholds, because the same tokens cost 4× less to carry on Fable 5.1 (0.025× reads) than on Fable 5 (0.1×): a token threshold that is right for one is noise or silence on the other. The advice is routed by the results' share of the cached prefix.
 - **Cache cooling**: when the agent ran long enough that the parent's prompt cache expired (or came within the lead time of expiring). A foreground agent blocks the parent, so the parent's cache ages for the whole run; if the run outlasts the TTL, the call that consumes the result re-writes the entire prefix. The TTL in effect (1-hour or 5-minute), the cached context size and the model are read from the session transcript, so the dollar figure is your figure.
 
+A second hook fires *before* the agent is dispatched (`PreToolUse` on `^Agent$`), where two things are cheap to get right and impossible to fix afterwards:
+
+- **Output size** — a prompt with no length constraint returns whatever the agent feels like, and it lands in your context permanently. The lint checks the prompt for a constraint and nudges when there isn't one.
+- **Worker model** — an `Agent` call with no `model` inherits the default subagent model. For read-heavy work (scan, grep, inventory, summarize) that is the session model's rate paying for Haiku's job. The lint fires only when the prompt shows *both* a read verb and a breadth signal, reads the session's model from the transcript, and states the ratio from the shared price table: 5x from an Opus session, 10x from Fable. When it can't read the transcript it gives Haiku's absolute price rather than inventing a ratio.
+
+Effort is deliberately **not** linted: the `Agent` tool has no effort parameter and `CLAUDE_CODE_EFFORT_LEVEL` outranks agent frontmatter, so an in-process subagent can't be de-escalated at the call site. That's an `effort-control/` concern.
+
+Neither check ever blocks. A `PreToolUse` block costs an extra assistant turn, and an extra turn re-reads the whole cached prefix — at a 200K prefix on Opus that is ~$0.10, more than either warning saves.
+
 It also installs one slash command:
 
 - `/delegation-report` — shows per-agent result sizes and what carrying them costs *this* session: priced from the model and cache TTL read from the transcript, computed locally by `delegation_report.py` (zero Claude tokens), with a verdict on whether delegation is actually your tax
@@ -21,13 +30,14 @@ It also installs one slash command:
 | File | Purpose |
 |---|---|
 | `delegation-result-monitor.sh` | Bash hook that fires on every `PostToolUse` matching `^Agent$`. Measures result size, accumulates per-session totals, warns when thresholds are crossed. |
+| `agent-prompt-lint.sh` | Bash hook that fires on every `PreToolUse` matching `^Agent$`. Nudges when the prompt has no output-length constraint, and when a read-heavy delegation is dispatched with no `model`. Never blocks. |
 | `delegation_report.py` | Computes the `/delegation-report`: reads the per-agent state file plus the transcript's last main-thread assistant message (model, TTL, prefix size) and prices warm carrying cost per API call, the results' share of a cold re-write, and a verdict |
 | `commands/delegation-report.md` | `/delegation-report` slash command — runs `delegation_report.py` inline and shows its output verbatim |
 | `settings-snippet.json` | The `hooks` block to merge into `~/.claude/settings.json` |
 | `install.sh` | Copies files into place, backs up anything it overwrites, prints the snippet to merge |
-| `test.sh` | Fixture tests — synthetic transcripts for every cache state (warm / near-expiry / expired on both TTLs, fallback, one-warning-per-dispatch) plus the size thresholds. `./test.sh`, exit 0 = all pass |
+| `test.sh` | Fixture tests — synthetic transcripts for every cache state (warm / near-expiry / expired on both TTLs, fallback, one-warning-per-dispatch), the size thresholds, and every `agent-prompt-lint.sh` branch. `./test.sh`, exit 0 = all pass |
 
-Total install footprint: one script, one slash command, one JSON snippet to merge. Zero dependencies beyond `bash`, `python3` (for JSON parsing — already present on macOS and most Linux), and `date`.
+Total install footprint: two hook scripts, one slash command, one JSON snippet to merge. Zero dependencies beyond `bash`, `python3` (for JSON parsing — already present on macOS and most Linux), and `date`.
 
 ## Install
 

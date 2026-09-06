@@ -93,6 +93,18 @@ If you install all helpers, here's the combined `hooks` block for `~/.claude/set
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "^Agent$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/cost-helpers/delegation-cost/agent-prompt-lint.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "^(Read|Glob|Grep)$",

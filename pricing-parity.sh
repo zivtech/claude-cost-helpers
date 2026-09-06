@@ -18,6 +18,7 @@ root = sys.argv[1]
 FILES = [
     "idle-tax/cache-idle-timer.sh",
     "delegation-cost/delegation-result-monitor.sh",
+    "delegation-cost/agent-prompt-lint.sh",
     "delegation-cost/delegation_report.py",
     "usage-report/usage_report.py",
 ]

@@ -28,9 +28,22 @@ Poor candidates (keep in main session):
 - Small tasks (reading 1-3 files) — subagent overhead isn't worth it
 - Tasks that need to modify files — delegating writes creates coordination risk
 
-### Step 3: Wrap into an Agent tool call
+### Step 3: Pick the worker model
 
-Use the `Agent` tool with `run_in_background: true` and a self-contained prompt. The prompt must include all context the subagent needs — it has no memory of the current session.
+Pass `model` explicitly. An `Agent` call with no `model` inherits the default subagent model, so a scan-and-summarize task — where the agent reads a lot and decides little — pays the session model's rate for Haiku's job. From the shared price table (input $/MTok): Fable 5/5.1 $10, Opus 4.8/5 $5, Sonnet 5 $2, Haiku 4.5 $1. Delegating a read-heavy task from an Opus session without setting `model` costs 5x what Haiku would; from a Fable session, 10x.
+
+| Task | Model |
+|---|---|
+| Scan, search, grep, inventory, "find every place X appears" | `haiku` |
+| Summarize or extract from files whose shape is known | `haiku` |
+| Review, debug, write tests, judgement over what was read | `sonnet` |
+| Architecture, security review, complex refactor | leave unset (inherit) or `opus` |
+
+**Effort cannot be set per-Agent-call.** The `Agent` tool has no effort parameter, and `CLAUDE_CODE_EFFORT_LEVEL` in `settings.json` `env` outranks agent frontmatter `effort:` — so an in-process subagent runs at whatever level the session is pinned to. If that pin is `xhigh`, every subagent you dispatch is `xhigh` too. Lowering it is a settings change, not a call-site one: see `effort-control/`.
+
+### Step 4: Wrap into an Agent tool call
+
+Use the `Agent` tool with `run_in_background: true`, the model from Step 3, and a self-contained prompt. The prompt must include all context the subagent needs — it has no memory of the current session.
 
 Example prompt structure:
 ```
@@ -41,9 +54,10 @@ Scope: [which files/directories]
 Output format: [what to return — bullet list, structured summary, etc.]
 
 Do not ask clarifying questions. Work with what you have and report what you find.
+Report in under 200 words.
 ```
 
-### Step 4: Tell the user what to expect
+### Step 5: Tell the user what to expect
 
 After dispatching, let the user know:
 - The subagent is running in the background
