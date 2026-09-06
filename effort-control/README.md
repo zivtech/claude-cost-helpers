@@ -148,4 +148,4 @@ Written April 16, 2026, the day Opus 4.7 shipped, after confirming in a live ses
 
 ## License
 
-GPL-3.0-or-later. See LICENSE.
+MIT. See LICENSE.

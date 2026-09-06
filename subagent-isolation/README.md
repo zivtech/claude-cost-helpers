@@ -140,4 +140,4 @@ This is a productized version of a monitoring pattern the author runs in his per
 
 ## License
 
-GPL-3.0-or-later. See LICENSE.
+MIT. See LICENSE.

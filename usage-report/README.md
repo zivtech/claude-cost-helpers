@@ -135,4 +135,4 @@ generalized and given fixture tests. Everything is stdlib Python and bash.
 
 ## License
 
-GPL-3.0-or-later. See LICENSE.
+MIT. See LICENSE.

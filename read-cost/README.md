@@ -100,4 +100,4 @@ Prompted by [*Portal by Spotify cut my Claude Code token usage by 90%*](https://
 
 ## License
 
-MIT — see `LICENSE`.
+MIT. See LICENSE.

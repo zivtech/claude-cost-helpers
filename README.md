@@ -258,7 +258,7 @@ The helpers are the sensors. Joyus is the fleet manager.
 
 ## License
 
-GPL-3.0-or-later. See each helper's LICENSE file.
+MIT. See each helper's LICENSE file.
 
 ---
 

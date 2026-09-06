@@ -85,7 +85,7 @@ per-helper `commands/*.md`.
 ## Conventions
 
 - Each helper is self-contained in its own directory
-- Every helper has: a hook script (bash), one or two slash commands (markdown), a settings snippet (JSON), install/uninstall scripts, README, and GPL-3.0-or-later LICENSE
+- Every helper has: a hook script (bash), one or two slash commands (markdown), a settings snippet (JSON), install/uninstall scripts, README, and MIT LICENSE
 - Hook scripts read JSON from stdin (Claude Code hook contract), write JSON to stdout
 - Hooks are informational — they warn but never block (`"continue": true` always)
 - State files go in `~/.claude/.session-state/` keyed by session ID
@@ -103,7 +103,7 @@ Follow the pattern in `idle-tax/`. Checklist:
 4. `install.sh` that copies files + backs up existing + prints settings snippet
 5. `uninstall.sh` that removes files + restores backups
 6. `README.md` explaining the problem, the fix, install, how it works, config, uninstall
-7. `LICENSE` (GPL-3.0-or-later)
+7. `LICENSE` (MIT)
 8. Test all three states (warm/warning/triggered) before shipping
 
 ## Hook contract fields

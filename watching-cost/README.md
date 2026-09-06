@@ -139,4 +139,4 @@ This is a productized version of hooks the author has been running in his person
 
 ## License
 
-GPL-3.0-or-later. See LICENSE.
+MIT. See LICENSE.

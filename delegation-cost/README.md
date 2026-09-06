@@ -217,4 +217,4 @@ This is a productized version of patterns the author observed while using multi-
 
 ## License
 
-GPL-3.0-or-later. See LICENSE.
+MIT. See LICENSE.
